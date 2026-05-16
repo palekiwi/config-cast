@@ -17,6 +17,7 @@
           modules = [
             {
               config.vim = {
+                lineNumberMode = "none";
                 theme = {
                   enable = true;
                   name = "github";
@@ -25,14 +26,24 @@
                 treesitter.enable = true;
                 autocomplete.nvim-cmp = {
                   enable = true;
-                  sourcePlugins = [ "cmp-path"];
+                  sourcePlugins = [ "cmp-path" ];
                   sources = { path = "[Path]"; };
                   mappings = {
                     confirm = "<C-e>";
                     close = null;
                   };
                 };
+                languages.ruby.enable = true;
+                languages.ruby.treesitter.enable = true;
                 languages.markdown.enable = true;
+                languages.markdown.extensions.render-markdown-nvim = {
+                  enable = true;
+                  setupOpts = {
+                    anti_conceal = {
+                      enabled = false;
+                    };
+                  };
+                };
               };
             }
           ];
