@@ -29,6 +29,8 @@
 
           shellHook = ''
             echo "CAST Global Nix Environment Loaded"
+
+            export EDITOR=vim
           '';
         };
       }
