@@ -1,0 +1,14 @@
+{
+  "agent_versions": {
+    "opencode": "1.15.0"
+  },
+  "nix": true,
+  "nix_extra_substituters": ["https://palekiwi.cachix.org"],
+  "nix_extra_trusted_public_keys": ["palekiwi.cachix.org-1:/S23j64quRTMpe+zteCPAd0p8fczVTWzOpV5mFoFOg8="],
+  "memory": "2048m",
+  "version_cache_ttl_hours": 24,
+  "forbidden_paths": [
+    ".envrc"
+  ],
+  "timezone": "Asia/Taipei"
+}
