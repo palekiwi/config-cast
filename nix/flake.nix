@@ -17,6 +17,11 @@
           modules = [
             {
               config.vim = {
+                theme = {
+                  enable = true;
+                  name = "github";
+                  style = "dark_default";
+                };
                 treesitter.enable = true;
                 autocomplete.nvim-cmp.enable = true;
                 languages.markdown.enable = true;
@@ -27,7 +32,7 @@
       in
       {
         devShells.default = pkgs.mkShell {
-          name = "ocx-default";
+          name = "cast-default";
           buildInputs = with pkgs; [
             ast-grep
             fd
