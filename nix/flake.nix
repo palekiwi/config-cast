@@ -23,7 +23,11 @@
                   style = "dark_default";
                 };
                 treesitter.enable = true;
-                autocomplete.nvim-cmp.enable = true;
+                autocomplete.nvim-cmp = {
+                  enable = true;
+                  sourcePlugins = [ "cmp-path"];
+                  sources = { path = "[Path]"; };
+                };
                 languages.markdown.enable = true;
               };
             }
