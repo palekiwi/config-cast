@@ -27,6 +27,10 @@
                   enable = true;
                   sourcePlugins = [ "cmp-path"];
                   sources = { path = "[Path]"; };
+                  mappings = {
+                    confirm = "<C-e>";
+                    close = null;
+                  };
                 };
                 languages.markdown.enable = true;
               };
