@@ -20,6 +20,8 @@ let
             mappings = {
               confirm = "<C-e>";
               close = null;
+              next = "<Down>";
+              previous = "<Up>";
             };
             setupOpts = {
               sources = pkgs.lib.mkForce [
