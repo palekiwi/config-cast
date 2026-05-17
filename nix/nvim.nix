@@ -17,11 +17,19 @@ let
           treesitter.enable = true;
           autocomplete.nvim-cmp = {
             enable = true;
-            sourcePlugins = [ "cmp-path" ];
-            sources = { path = "[Path]"; };
             mappings = {
               confirm = "<C-e>";
               close = null;
+            };
+            setupOpts = {
+              sources = pkgs.lib.mkForce [
+                {
+                  name = "path";
+                  option = {
+                    get_cwd = pkgs.lib.generators.mkLuaInline "function() return vim.fn.getcwd() end";
+                  };
+                }
+              ];
             };
           };
           keymaps = [
