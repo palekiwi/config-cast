@@ -6,6 +6,9 @@ let
       {
         config.vim = {
           lineNumberMode = "none";
+          options = {
+            scrolloff = 5;
+          };
           theme = {
             enable = true;
             name = "github";
