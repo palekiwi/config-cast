@@ -33,6 +33,20 @@
                     close = null;
                   };
                 };
+                keymaps = [
+                  {
+                    key = "<Find>";
+                    mode = [ "n" "i" "v" "c" "x" ];
+                    silent = true;
+                    action = "<Home>";
+                  }
+                  {
+                    key = "<Select>";
+                    mode = [ "n" "i" "v" "c" "x" ];
+                    silent = true;
+                    action = "<End>";
+                  }
+                ];
                 languages.ruby.enable = true;
                 languages.ruby.treesitter.enable = true;
                 languages.markdown.enable = true;
