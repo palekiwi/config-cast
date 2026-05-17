@@ -38,8 +38,6 @@ let
               action = "<End>";
             }
           ];
-          languages.ruby.enable = true;
-          languages.ruby.treesitter.enable = true;
           languages.markdown.enable = true;
           languages.markdown.extensions.render-markdown-nvim = {
             enable = true;
