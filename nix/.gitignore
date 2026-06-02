@@ -1,0 +1,6 @@
+.direnv/
+.envrc
+.mem/
+cast.json
+cast-mcp.json
+tags

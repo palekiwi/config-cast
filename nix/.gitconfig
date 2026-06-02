@@ -1,0 +1,10 @@
+[user]
+    name = Pawel Lisewski
+    email = dev@palekiwi.com
+[committer]
+    name = opencode
+    email = noreply@palekiwi.com
+[init]
+    defaultBranch = master
+[pull]
+    rebase = true

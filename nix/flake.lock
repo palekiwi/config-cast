@@ -7,11 +7,11 @@
         "nixpkgs": "nixpkgs"
       },
       "locked": {
-        "lastModified": 1779535120,
-        "narHash": "sha256-1KTUIp1OrvyfSEWY7iBpygjWKoyiOnSrX4NIWES/uiA=",
+        "lastModified": 1779605178,
+        "narHash": "sha256-S+N9R/0tRc8qJsegpf/R3dZkZoCeAtVZL2vd4q3tapM=",
         "owner": "palekiwi-labs",
         "repo": "cast",
-        "rev": "4113bbc6954185b380be4c2b9fd518efe5b864f6",
+        "rev": "e230c3a1c950b1c3d0290da3274f9a7e917beb9f",
         "type": "github"
       },
       "original": {
@@ -163,17 +163,17 @@
         "nixpkgs": "nixpkgs_2"
       },
       "locked": {
-        "lastModified": 1779290358,
-        "narHash": "sha256-X6D+j17A162IvTeajOvp9QQW32HhmWSH7Ya8waoZ8Lc=",
+        "lastModified": 1780372647,
+        "narHash": "sha256-J0fWq+WBYUhng0wZfpTGsHMUTJROwTl92MCJrgGmlJ8=",
         "owner": "palekiwi-labs",
         "repo": "mem",
-        "rev": "f26675a35f592e561dbc4c61a4299c2b35af8db0",
+        "rev": "8f190c989743ead53009b3e610cfd791a04555b0",
         "type": "github"
       },
       "original": {
         "owner": "palekiwi-labs",
         "repo": "mem",
-        "rev": "f26675a35f592e561dbc4c61a4299c2b35af8db0",
+        "rev": "8f190c989743ead53009b3e610cfd791a04555b0",
         "type": "github"
       }
     },
@@ -248,11 +248,11 @@
     },
     "nixpkgs_3": {
       "locked": {
-        "lastModified": 1779475168,
-        "narHash": "sha256-gm3D4FF9EcZlXK/ZnsC6IYzpEQplOoT+LPTurzOPyrk=",
+        "lastModified": 1779536132,
+        "narHash": "sha256-q+fF42iv/geEbHfgSzy3tS0FF/EyD6XTZ98E6yxiBO8=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "a0991c886dc83e6e9de01d5266e4842985b1850e",
+        "rev": "3d8f0f3f72a6cd4d93d0ad13203f2ea1cb7e1456",
         "type": "github"
       },
       "original": {

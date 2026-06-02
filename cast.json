@@ -1,6 +1,7 @@
 {
   "agent_versions": {
-    "opencode": "1.15.0"
+    "opencode": "1.15.10",
+    "pi": "latest"
   },
   "nix": true,
   "nix_extra_substituters": ["https://palekiwi.cachix.org"],
