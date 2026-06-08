@@ -6,6 +6,13 @@ let
       {
         config.vim = {
           lineNumberMode = "none";
+          autocmds = [
+            {
+              event = [ "VimEnter" ];
+              pattern = [ "*" ];
+              command = "startinsert";
+            }
+          ];
           options = {
             scrolloff = 5;
           };
@@ -52,9 +59,9 @@ let
           languages.markdown.extensions.render-markdown-nvim = {
             enable = true;
             setupOpts = {
-              anti_conceal = {
-                enabled = false;
-              };
+              # anti_conceal = {
+              #   enabled = false;
+              # };
             };
           };
         };
