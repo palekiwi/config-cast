@@ -4,8 +4,8 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
     flake-utils.url = "github:numtide/flake-utils";
-    mem.url = "github:palekiwi-labs/mem/8f190c989743ead53009b3e610cfd791a04555b0";
-    cast.url = "github:palekiwi-labs/cast/dev";
+    mem.url = "github:palekiwi-labs/mem/2a49ad52189ed96930765fc9d117268f7a2970c8";
+    cast.url = "github:palekiwi-labs/cast/8159616d191ab3fa1deb838ac5e6d88a84e5baef";
     nvf.url = "github:NotAShelf/nvf";
   };
 
@@ -32,7 +32,6 @@
           ];
 
           shellHook = ''
-            # Wire up git configuration
             export GIT_CONFIG_COUNT=2
             export GIT_CONFIG_KEY_0="include.path"
             export GIT_CONFIG_VALUE_0="${./.gitconfig}"
@@ -45,6 +44,8 @@
 
             export MEM_ARTIFACT_TYPES='["spec", "plan", "trace", "doc", "todo", "bin", "tmp", "ref"]'
             export MEM_IGNORED_TYPES='["tmp", "ref"]'
+
+            export CARGO_BUILD_JOBS=1
           '';
         };
       }
