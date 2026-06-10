@@ -1,0 +1,5 @@
+.direnv/
+.envrc
+.mem/
+cast.env
+tags
