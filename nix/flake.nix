@@ -15,42 +15,33 @@
         pkgs = import nixpkgs { inherit system; };
         customNeovim = import ./nvim.nix { inherit pkgs nvf; };
         claudeUsage = import ./claude-usage.nix { inherit pkgs; };
+        envVars = import ./env.nix { inherit pkgs; };
       in
       {
-        devShells.default = pkgs.mkShell {
+        devShells.default = pkgs.mkShell (envVars // {
           name = "cast-default";
           buildInputs = with pkgs; [
             ast-grep
+            claudeUsage
             curl
+            customNeovim
             fd
             gh
             jq
             ripgrep
             tree
-            customNeovim
-            claudeUsage
 
             inputs.mem.packages.${system}.default
             inputs.cast.packages.${system}.cast-mcp-client
           ];
 
           shellHook = ''
-            export GIT_CONFIG_COUNT=2
-            export GIT_CONFIG_KEY_0="include.path"
-            export GIT_CONFIG_VALUE_0="${./.gitconfig}"
-            export GIT_CONFIG_KEY_1="core.excludesFile"
-            export GIT_CONFIG_VALUE_1="${./.gitignore}"
+            export TZ="Asia/Taipei";
+            export TZDIR="${pkgs.tzdata}/share/zoneinfo";
 
             echo "CAST Global Nix Environment Loaded"
-
-            export EDITOR=nvim
-
-            export MEM_ARTIFACT_TYPES='["spec", "plan", "trace", "doc", "todo", "bin", "tmp", "ref"]'
-            export MEM_IGNORED_TYPES='["tmp", "ref"]'
-
-            export CARGO_BUILD_JOBS=1
           '';
-        };
+        });
       }
     );
 }

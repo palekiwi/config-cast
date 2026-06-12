@@ -7,17 +7,17 @@
         "nixpkgs": "nixpkgs"
       },
       "locked": {
-        "lastModified": 1780996716,
-        "narHash": "sha256-/yjz2LOz1xx+l/lSyuHav5mQCw4bl5jn1FmYkFYBZ9w=",
+        "lastModified": 1781190330,
+        "narHash": "sha256-SXcT+3u/jH4yhrjmFXR9e9sTEdqxyh2eXHcwyuabkeU=",
         "owner": "palekiwi-labs",
         "repo": "cast",
-        "rev": "8159616d191ab3fa1deb838ac5e6d88a84e5baef",
+        "rev": "79315ccf86dce9202efae0ae1bd759c0928d7382",
         "type": "github"
       },
       "original": {
         "owner": "palekiwi-labs",
+        "ref": "dev",
         "repo": "cast",
-        "rev": "8159616d191ab3fa1deb838ac5e6d88a84e5baef",
         "type": "github"
       }
     },
