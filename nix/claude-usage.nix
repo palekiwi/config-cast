@@ -1,6 +1,11 @@
 { pkgs }:
 
 pkgs.writeShellScriptBin "claude-usage" ''
+  # Fetch Claude usage information using OAuth token.
+  # The "anthropic-beta: oauth-2025-04-20" header is required for OAuth-based usage tracking.
+  # This version string was captured from the official Claude CLI's internal usage requests.
+  # If the API changes, check Anthropic API versioning docs or the CLI's debug logs.
+
   AUTH_FILE="$HOME/.local/share/opencode/auth.json"
 
   if [ ! -f "$AUTH_FILE" ]; then
