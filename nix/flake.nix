@@ -5,7 +5,7 @@
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
     flake-utils.url = "github:numtide/flake-utils";
     mem.url = "github:palekiwi-labs/mem/2a49ad52189ed96930765fc9d117268f7a2970c8";
-    cast.url = "github:palekiwi-labs/cast/8159616d191ab3fa1deb838ac5e6d88a84e5baef";
+    cast.url = "github:palekiwi-labs/cast/dev";
     nvf.url = "github:NotAShelf/nvf";
   };
 
@@ -14,18 +14,21 @@
       let
         pkgs = import nixpkgs { inherit system; };
         customNeovim = import ./nvim.nix { inherit pkgs nvf; };
+        claudeUsage = import ./claude-usage.nix { inherit pkgs; };
       in
       {
         devShells.default = pkgs.mkShell {
           name = "cast-default";
           buildInputs = with pkgs; [
             ast-grep
+            curl
             fd
             gh
             jq
             ripgrep
             tree
             customNeovim
+            claudeUsage
 
             inputs.mem.packages.${system}.default
             inputs.cast.packages.${system}.cast-mcp-client
