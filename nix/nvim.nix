@@ -61,6 +61,8 @@ let
           languages.json.treesitter.enable = true;
           languages.nix.enable = true;
           languages.nix.treesitter.enable = true;
+          languages.ruby.enable = true;
+          languages.ruby.treesitter.enable = true;
           languages.markdown.enable = true;
           languages.markdown.treesitter.enable = true;
           languages.markdown.extensions.render-markdown-nvim = {
