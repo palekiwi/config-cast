@@ -1,3 +1,5 @@
+# https://nvf.notashelf.dev/options.html
+
 { pkgs, nvf, ... }:
 let
   customNeovim = nvf.lib.neovimConfiguration {
@@ -55,14 +57,15 @@ let
               action = "<End>";
             }
           ];
+          languages.json.enable = true;
+          languages.json.treesitter.enable = true;
+          languages.nix.enable = true;
+          languages.nix.treesitter.enable = true;
           languages.markdown.enable = true;
+          languages.markdown.treesitter.enable = true;
           languages.markdown.extensions.render-markdown-nvim = {
             enable = true;
-            setupOpts = {
-              # anti_conceal = {
-              #   enabled = false;
-              # };
-            };
+            setupOpts = {};
           };
         };
       }

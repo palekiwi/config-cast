@@ -4,7 +4,7 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
     flake-utils.url = "github:numtide/flake-utils";
-    mem.url = "github:palekiwi-labs/mem/2a49ad52189ed96930765fc9d117268f7a2970c8";
+    cue.url = "github:palekiwi-labs/cue";
     cast.url = "github:palekiwi-labs/cast/dev";
     nvf.url = "github:NotAShelf/nvf";
   };
@@ -30,8 +30,9 @@
             jq
             ripgrep
             tree
+            tree-sitter
 
-            inputs.mem.packages.${system}.default
+            inputs.cue.packages.${system}.default
             inputs.cast.packages.${system}.cast-mcp-client
           ];
 
