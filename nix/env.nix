@@ -11,8 +11,8 @@
   EDITOR = "nvim";
 
   # Memory System (mem) configuration
-  MEM_ARTIFACT_TYPES = ''["spec", "plan", "trace", "doc", "todo", "bin", "tmp", "ref"]'';
-  MEM_IGNORED_TYPES = ''["tmp", "ref"]'';
+  CUE_ARTIFACT_TYPES = ''["task", "spec", "plan", "trace", "doc", "todo", "bin", "tmp", "ref"]'';
+  CUE_IGNORED_TYPES = ''["tmp", "ref"]'';
 
   # Build and Runtime settings
   CARGO_BUILD_JOBS = "1";
