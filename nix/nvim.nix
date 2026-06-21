@@ -45,6 +45,12 @@ let
           };
           keymaps = [
             {
+              key = "<C-c>";
+              mode = [ "v" ];
+              silent = true;
+              action = ''"+y'';
+            }
+            {
               key = "<Find>";
               mode = [ "n" "i" "v" "c" "x" ];
               silent = true;
