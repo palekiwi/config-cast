@@ -7,6 +7,9 @@ let
     modules = [
       {
         config.vim = {
+          utility.motion.hop = {
+            enable = true;
+          };
           lineNumberMode = "none";
           autocmds = [
             {
@@ -74,6 +77,12 @@ let
               mode = [ "n" "i" "v" "c" "x" ];
               silent = true;
               action = "<End>";
+            }
+            {
+              key = "s";
+              mode = [ "n" "v" ];
+              silent = true;
+              action = "<cmd>HopChar1<CR>";
             }
           ];
           languages.json.enable = true;
