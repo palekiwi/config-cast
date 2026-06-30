@@ -1,5 +1,5 @@
 .direnv/
 .envrc
-.mem/
+.cue/
 cast.env
 tags
