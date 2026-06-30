@@ -17,4 +17,8 @@
   # Build and Runtime settings
   CARGO_BUILD_JOBS = "1";
   OPENCODE_ENABLE_EXPERIMENTAL_MODELS = "true";
+
+  OPECODE_SOURCE_CODE_DIR = "/home/pl/.config/opencode/ref/opencode";
+
+  ACUITY_HOST = "http://172.17.0.1:33222";
 }

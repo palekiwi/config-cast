@@ -84,6 +84,12 @@ let
               silent = true;
               action = "<cmd>HopChar1<CR>";
             }
+            {
+              key = "l";
+              mode = [ "n" "v" ];
+              silent = true;
+              action = "<cmd>HopLineStart<CR>";
+            }
           ];
           languages.json.enable = true;
           languages.json.treesitter.enable = true;

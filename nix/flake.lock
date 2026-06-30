@@ -28,11 +28,11 @@
         "nixpkgs": "nixpkgs_2"
       },
       "locked": {
-        "lastModified": 1781967815,
-        "narHash": "sha256-LplwkB8Eisby5WM1tpHOG0rI/izB2q1QWxh0cCUP3Tc=",
+        "lastModified": 1782286766,
+        "narHash": "sha256-XcLVz8YDt45fCpjo8CTC3ZZASMTgRjiCmB1LHa9BcuY=",
         "owner": "palekiwi-labs",
         "repo": "cue",
-        "rev": "bc9bd00a0f1c8770d026e1deff7c6994a7f357d0",
+        "rev": "be00e7e97dccd9a946fd33f7126e078f19cf0de9",
         "type": "github"
       },
       "original": {
@@ -264,11 +264,11 @@
         "systems": "systems_4"
       },
       "locked": {
-        "lastModified": 1781940103,
-        "narHash": "sha256-Vsb9xERZ7w1LivhWB7tuB07f8/sOz17k0KHzcGdASc8=",
+        "lastModified": 1781997110,
+        "narHash": "sha256-6D6xtYN5t1kZGNd69eMZsRBkgX5Df1roErn/kFR1C+A=",
         "owner": "NotAShelf",
         "repo": "nvf",
-        "rev": "d390177b7f0a19fa7065935bd394607278ae1a13",
+        "rev": "320f60b97075a58d38b90fc5e39f478421dbd38a",
         "type": "github"
       },
       "original": {

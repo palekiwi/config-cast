@@ -1,6 +1,6 @@
 {
   "agent_versions": {
-    "opencode": "1.16.2",
+    "opencode": "1.17.11",
     "pi": "0.76.0",
     "claudecode": "2.1.170"
   },

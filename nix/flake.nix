@@ -32,7 +32,7 @@
             tree
             tree-sitter
 
-            inputs.cue.packages.${system}.default
+            inputs.cue.packages.${system}.cue
             inputs.cast.packages.${system}.cast-mcp-client
           ];
 
@@ -40,7 +40,7 @@
             export TZ="Asia/Taipei";
             export TZDIR="${pkgs.tzdata}/share/zoneinfo";
 
-            echo "CAST Global Nix Environment Loaded"
+            echo "CAST Global Nix Environment Loaded" >&2
           '';
         });
       }
