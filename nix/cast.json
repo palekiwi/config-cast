@@ -1,0 +1,17 @@
+{
+  "use_flake": false,
+  "extra_data_volumes": {
+    "config-nvim": {
+      "source": "/home/pl/nix-config/home/config/nvim/",
+      "target": "/home/pl/nix-config/home/config/nvim/",
+      "type": "bind",
+      "mode": "ro"
+    },
+    "nvf-nvim": {
+      "source": "/home/pl/code/NotAShelf/nvf",
+      "target": "/home/pl/code/NotAShelf/nvf",
+      "type": "bind",
+      "mode": "ro"
+    }
+  }
+}
