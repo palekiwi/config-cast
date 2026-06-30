@@ -67,6 +67,18 @@ let
           };
           keymaps = [
             {
+              key = "<Down>";
+              mode = [ "n" "v" ];
+              silent = true;
+              action = "gj";
+            }
+            {
+              key = "<Up>";
+              mode = [ "n" "v" ];
+              silent = true;
+              action = "gk";
+            }
+            {
               key = "<C-c>";
               mode = [ "v" ];
               silent = true;
