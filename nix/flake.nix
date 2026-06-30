@@ -5,7 +5,7 @@
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
     flake-utils.url = "github:numtide/flake-utils";
     cue.url = "github:palekiwi-labs/cue";
-    cast.url = "github:palekiwi-labs/cast/dev";
+    cast.url = "github:palekiwi-labs/cast";
     nvf.url = "github:NotAShelf/nvf";
   };
 

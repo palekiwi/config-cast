@@ -10,10 +10,6 @@
   # Editor
   EDITOR = "nvim";
 
-  # Memory System (mem) configuration
-  CUE_ARTIFACT_TYPES = ''["task", "spec", "plan", "trace", "doc", "todo", "bin", "tmp", "ref"]'';
-  CUE_IGNORED_TYPES = ''["tmp", "ref"]'';
-
   # Build and Runtime settings
   CARGO_BUILD_JOBS = "1";
   OPENCODE_ENABLE_EXPERIMENTAL_MODELS = "true";
