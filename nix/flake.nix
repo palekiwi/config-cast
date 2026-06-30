@@ -14,7 +14,6 @@
       let
         pkgs = import nixpkgs { inherit system; };
         customNeovim = import ./nvim.nix { inherit pkgs nvf; };
-        claudeUsage = import ./claude-usage.nix { inherit pkgs; };
         envVars = import ./env.nix { inherit pkgs; };
       in
       {
@@ -22,7 +21,6 @@
           name = "cast-default";
           buildInputs = with pkgs; [
             ast-grep
-            claudeUsage
             curl
             customNeovim
             fd
