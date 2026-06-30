@@ -7,6 +7,12 @@ let
     modules = [
       {
         config.vim = {
+          # Pure, reproducible runtime tree appended to Neovim's 'runtimepath'
+          # by nvf at build time. Neovim loads ftplugins from each rtp dir as
+          # <dir>/ftplugin/<ft>/init.lua, so this directory must CONTAIN the
+          # ftplugin/ folder (not be the folder itself).
+          additionalRuntimePaths = [ ./runtime ];
+
           utility.motion.hop = {
             enable = true;
           };
