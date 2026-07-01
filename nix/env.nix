@@ -10,6 +10,19 @@
   # Editor
   EDITOR = "nvim";
 
+  CUE_ARTIFACT_TYPES = ''[
+    "task",
+    "note",
+    spec",
+    "plan",
+    "trace",
+    "doc",
+    "todo",
+    "bin",
+    "tmp",
+    "ref"]
+  '';
+
   # Build and Runtime settings
   CARGO_BUILD_JOBS = "1";
   OPENCODE_ENABLE_EXPERIMENTAL_MODELS = "true";
