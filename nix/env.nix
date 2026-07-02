@@ -13,7 +13,7 @@
   CUE_ARTIFACT_TYPES = ''[
     "task",
     "note",
-    spec",
+    "spec",
     "plan",
     "trace",
     "doc",
