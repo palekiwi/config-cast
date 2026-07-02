@@ -1,8 +1,8 @@
 {
   "agent_versions": {
-    "opencode": "1.17.11",
+    "opencode": "1.17.13",
     "pi": "0.76.0",
-    "claudecode": "2.1.170"
+    "claudecode": "2.1.198"
   },
   "memory": "2048m",
   "cpus": 1.0,
