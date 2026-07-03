@@ -46,6 +46,9 @@ local function jump(direction)
   end
 end
 
+-- Hard-wrap markdown prose at 80 columns.
+vim.opt_local.textwidth = 80
+
 -- Per-markdown treesitter folding using the native foldexpr (the replacement
 -- for the removed `nvim_treesitter#foldexpr()`). foldlevel 99 keeps the file
 -- open by default, matching the host.
