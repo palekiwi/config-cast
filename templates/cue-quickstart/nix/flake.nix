@@ -28,7 +28,7 @@
             if [ ! -d "$CUE_PLUGINS_PATH/node_modules/@opencode-ai/plugin" ]; then
               echo "ERROR: cue-plugins not installed. Run:" >&2
               echo "  git clone git@github.com:palekiwi-labs/cue-plugins.git $CUE_PLUGINS_PATH" >&2
-              echo "  nix develop $CUE_PLUGINS_PATH -c bun install" >&2
+              echo "  nix develop $CUE_PLUGINS_PATH -c bun install --cwd $CUE_PLUGINS_PATH" >&2
               return 1 2>/dev/null || exit 1
             fi
 
