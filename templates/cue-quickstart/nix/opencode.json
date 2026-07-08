@@ -11,13 +11,14 @@
     "paths": ["{env:CUE_PLUGINS_PATH}/skills/"]
   },
   "permission": {
-    "cue-add": "allow",
-    "cue-plan": "allow",
-    "cue-todo": "allow",
-    "cue-task": "allow",
-    "cue-log": "allow",
     "bash": {
       "cue *": "allow"
-    }
+    },
+    "cue-add": "allow",
+    "cue-log": "allow",
+    "cue-plan": "allow",
+    "cue-task": "allow",
+    "cue-todo": "allow",
+    "todowrite": "deny"
   }
 }
