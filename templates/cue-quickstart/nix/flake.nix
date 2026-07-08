@@ -7,9 +7,6 @@
     cue = {
       url = "github:palekiwi-labs/cue";
     };
-    cue-plugins = {
-      url = "github:palekiwi-labs/cue-plugins";
-    };
   };
 
   outputs = { nixpkgs, flake-utils, ... }@inputs:
@@ -25,8 +22,15 @@
           ];
 
           shellHook = ''
-            export CUE_PLUGINS_PATH="${inputs.cue-plugins}"
+            export CUE_PLUGINS_PATH="$HOME/.config/opencode/plugin/palekiwi-labs/cue-plugins"
             export OPENCODE_CONFIG="$HOME/.config/cast/nix/opencode.json"
+
+            if [ ! -d "$CUE_PLUGINS_PATH/node_modules/@opencode-ai/plugin" ]; then
+              echo "ERROR: cue-plugins not installed. Run:" >&2
+              echo "  git clone git@github.com:palekiwi-labs/cue-plugins.git $CUE_PLUGINS_PATH" >&2
+              echo "  (cd $CUE_PLUGINS_PATH && bun install)" >&2
+              return 1 2>/dev/null || exit 1
+            fi
 
             echo "Cast Cue Environment Loaded" >&2
           '';
