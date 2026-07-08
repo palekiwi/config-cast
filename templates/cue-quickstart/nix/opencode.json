@@ -17,7 +17,6 @@
     "cue-task": "allow",
     "cue-log": "allow",
     "bash": {
-      "bun *": "allow",
       "cue *": "allow"
     }
   }
