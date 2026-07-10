@@ -25,6 +25,7 @@
             customNeovim
             fd
             gh
+            go-task
             jq
             ripgrep
             tree
