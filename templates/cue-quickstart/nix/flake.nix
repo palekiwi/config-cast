@@ -23,7 +23,30 @@
 
           shellHook = ''
             export CUE_PLUGINS_PATH="$HOME/.config/opencode/plugin/palekiwi-labs/cue-plugins"
-            export OPENCODE_CONFIG="$HOME/.config/cast/nix/opencode.json"
+            export OPENCODE_CONFIG_CONTENT='{
+              "$schema": "https://opencode.ai/config.json",
+              "plugin": [
+                "{env:CUE_PLUGINS_PATH}/src/opencode/cue-add.ts",
+                "{env:CUE_PLUGINS_PATH}/src/opencode/cue-log.ts",
+                "{env:CUE_PLUGINS_PATH}/src/opencode/cue-plan.ts",
+                "{env:CUE_PLUGINS_PATH}/src/opencode/cue-task.ts",
+                "{env:CUE_PLUGINS_PATH}/src/opencode/cue-todo.ts"
+              ],
+              "skills": {
+                "paths": ["{env:CUE_PLUGINS_PATH}/skills/"]
+              },
+              "permission": {
+                "bash": {
+                  "cue *": "allow"
+                },
+                "cue-add": "allow",
+                "cue-log": "allow",
+                "cue-plan": "allow",
+                "cue-task": "allow",
+                "cue-todo": "allow",
+                "todowrite": "deny"
+              }
+            }'
 
             if [ ! -d "$CUE_PLUGINS_PATH/node_modules/@opencode-ai/plugin" ]; then
               echo "ERROR: cue-plugins not installed. Run:" >&2
