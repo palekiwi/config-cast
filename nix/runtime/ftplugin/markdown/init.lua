@@ -49,6 +49,12 @@ end
 -- Hard-wrap markdown prose at 80 columns.
 vim.opt_local.textwidth = 80
 
+-- Repurpose `gc` (Comment.nvim) as a blockquote toggle: prefix lines with "> ".
+-- Markdown's stock commentstring is "<!-- %s -->", which is near-useless in
+-- prose; blockquotes are far more common. Comment.nvim falls back to
+-- `commentstring` for markdown (it has no built-in ft entry), so this is enough.
+vim.bo.commentstring = "> %s"
+
 -- Per-markdown treesitter folding using the native foldexpr (the replacement
 -- for the removed `nvim_treesitter#foldexpr()`). foldlevel 99 keeps the file
 -- open by default, matching the host.
