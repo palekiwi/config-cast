@@ -7,12 +7,20 @@
   "memory": "2048m",
   "cpus": 1.0,
   "pids_limit": 1024,
+  "extra_data_volumes": {
+    "cue": {
+      "source": "~/.config/cue/",
+      "target": "~/.config/cue",
+      "type": "bind",
+      "mode": "ro"
+    }
+  },
   "nix_extra_substituters": ["https://palekiwi.cachix.org"],
-  "nix_extra_trusted_public_keys": ["palekiwi.cachix.org-1:/S23j64quRTMpe+zteCPAd0p8fczVTWzOpV5mFoFOg8="],
+  "nix_extra_trusted_public_keys": [
+    "palekiwi.cachix.org-1:/S23j64quRTMpe+zteCPAd0p8fczVTWzOpV5mFoFOg8="
+  ],
   "memory": "2048m",
   "version_cache_ttl_hours": 24,
-  "forbidden_paths": [
-    ".envrc"
-  ],
+  "forbidden_paths": [".envrc"],
   "timezone": "Asia/Taipei"
 }
