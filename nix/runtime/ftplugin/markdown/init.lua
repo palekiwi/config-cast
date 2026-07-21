@@ -197,3 +197,12 @@ vim.keymap.set("n", "gww", function()
   vim.go.operatorfunc = "v:lua.__markdown_gw_format"
   return "g@_"
 end, { expr = true, buffer = true, desc = "Markdown: protected line-wrap current line" })
+
+vim.keymap.set("n", "gW", function()
+  local saved_view = vim.fn.winsaveview()
+  vim.api.nvim_buf_set_mark(0, "[", 1, 0, {})
+  local last_line = vim.api.nvim_buf_line_count(0)
+  vim.api.nvim_buf_set_mark(0, "]", last_line, 0, {})
+  _G.__markdown_gw_format("line")
+  vim.fn.winrestview(saved_view)
+end, { buffer = true, desc = "Markdown: protected line-wrap entire file" })
