@@ -67,3 +67,133 @@ vim.keymap.set({ "n", "v" }, "<C-Down>", function() jump("next") end,
   { silent = true, buffer = true, desc = "Markdown: next heading" })
 vim.keymap.set({ "n", "v" }, "<C-Up>", function() jump("prev") end,
   { silent = true, buffer = true, desc = "Markdown: previous heading" })
+
+-- Intelligent protected line-wrapping for gw.
+-- Since gw ignores formatexpr and formatprg, we remap gw to a custom operator.
+_G.__markdown_gw_format = function(motion_type)
+  local start_line = vim.api.nvim_buf_get_mark(0, "[")[1]
+  local end_line = vim.api.nvim_buf_get_mark(0, "]")[1]
+
+  if start_line == 0 or end_line == 0 then
+    return
+  end
+
+  local parser_ok, parser = pcall(vim.treesitter.get_parser, 0, "markdown")
+  if not parser_ok or not parser then
+    -- Fallback: standard gw
+    local count = end_line - start_line
+    local saved_view = vim.fn.winsaveview()
+    vim.api.nvim_win_set_cursor(0, { start_line, 0 })
+    if count == 0 then
+      vim.cmd("normal! gww")
+    else
+      vim.cmd("normal! " .. count .. "gwj")
+    end
+    vim.fn.winrestview(saved_view)
+    return
+  end
+
+  local tree = parser:parse(true)[1]
+  local root = tree:root()
+  local query_str = "((atx_heading) @heading) ((setext_heading) @heading) ((fenced_code_block) @code)"
+  local query_ok, query = pcall(vim.treesitter.query.parse, "markdown", query_str)
+  if not query_ok or not query then
+    -- Fallback: standard gw
+    local count = end_line - start_line
+    local saved_view = vim.fn.winsaveview()
+    vim.api.nvim_win_set_cursor(0, { start_line, 0 })
+    if count == 0 then
+      vim.cmd("normal! gww")
+    else
+      vim.cmd("normal! " .. count .. "gwj")
+    end
+    vim.fn.winrestview(saved_view)
+    return
+  end
+
+  local protected = {}
+  for id, node in query:iter_captures(root, 0, 0, -1) do
+    local srow, scol, erow, ecol = node:range()
+    local last_row = erow
+    if ecol == 0 and erow > srow then
+      last_row = erow - 1
+    end
+    for r = srow, last_row do
+      protected[r] = true
+    end
+  end
+
+  local function is_blank(line_str)
+    return line_str:match("^%s*$") ~= nil
+  end
+
+  local buffer_lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+  local runs = {}
+  local current_run = nil
+
+  for r = start_line - 1, end_line - 1 do
+    local line_str = buffer_lines[r + 1]
+    if not line_str then
+      break
+    end
+
+    local is_protected = protected[r] or is_blank(line_str)
+    if not is_protected then
+      if not current_run then
+        current_run = { start_row = r, end_row = r }
+      else
+        current_run.end_row = r
+      end
+    else
+      if current_run then
+        table.insert(runs, current_run)
+        current_run = nil
+      end
+    end
+  end
+
+  if current_run then
+    table.insert(runs, current_run)
+  end
+
+  local delta = 0
+  local saved_view = vim.fn.winsaveview()
+
+  for _, run in ipairs(runs) do
+    local run_start_1 = run.start_row + 1 + delta
+    local run_end_1 = run.end_row + 1 + delta
+
+    local lines_before = vim.api.nvim_buf_line_count(0)
+
+    vim.api.nvim_win_set_cursor(0, { run_start_1, 0 })
+
+    local count = run_end_1 - run_start_1
+    if count == 0 then
+      vim.cmd("normal! gww")
+    else
+      vim.cmd("normal! " .. count .. "gwj")
+    end
+
+    local lines_after = vim.api.nvim_buf_line_count(0)
+    local run_delta = lines_after - lines_before
+    delta = delta + run_delta
+  end
+
+  vim.fn.winrestview(saved_view)
+end
+
+-- Buffer-local keymaps remapping gw to use our custom operator
+vim.keymap.set("n", "gw", function()
+  vim.go.operatorfunc = "v:lua.__markdown_gw_format"
+  return "g@"
+end, { expr = true, buffer = true, desc = "Markdown: protected line-wrapping" })
+
+vim.keymap.set("x", "gw", function()
+  vim.go.operatorfunc = "v:lua.__markdown_gw_format"
+  return "g@"
+end, { expr = true, buffer = true, desc = "Markdown: protected line-wrapping" })
+
+vim.keymap.set("n", "gww", function()
+  vim.go.operatorfunc = "v:lua.__markdown_gw_format"
+  return "g@_"
+end, { expr = true, buffer = true, desc = "Markdown: protected line-wrap current line" })
