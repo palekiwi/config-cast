@@ -4,6 +4,7 @@
     "pi": "0.76.0",
     "claudecode": "2.1.198"
   },
+  "global_shell": "universal",
   "memory": "2048m",
   "cpus": 1.0,
   "pids_limit": 1024,
