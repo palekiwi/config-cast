@@ -1,9 +1,4 @@
 {
-  "agent_versions": {
-    "opencode": "1.17.13",
-    "pi": "0.76.0",
-    "claudecode": "2.1.198"
-  },
   "global_shell": "universal",
   "memory": "2048m",
   "cpus": 1.0,
@@ -21,7 +16,6 @@
     "palekiwi.cachix.org-1:/S23j64quRTMpe+zteCPAd0p8fczVTWzOpV5mFoFOg8="
   ],
   "memory": "2048m",
-  "version_cache_ttl_hours": 24,
   "forbidden_paths": [".envrc"],
   "timezone": "Asia/Taipei"
 }
