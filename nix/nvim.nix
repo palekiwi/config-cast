@@ -115,6 +115,8 @@ let
           languages.nix.treesitter.enable = true;
           languages.ruby.enable = true;
           languages.ruby.treesitter.enable = true;
+          languages.rust.enable = true;
+          languages.rust.treesitter.enable = true;
           languages.markdown.enable = true;
           languages.markdown.treesitter.enable = true;
           languages.markdown.extensions.render-markdown-nvim = {
