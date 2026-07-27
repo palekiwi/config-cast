@@ -6,7 +6,7 @@
   "extra_data_volumes": {
     "cue": {
       "source": "~/.config/cue/",
-      "target": "~/.config/cue",
+      "target": "~/.config/cue/",
       "type": "bind",
       "mode": "ro"
     }
