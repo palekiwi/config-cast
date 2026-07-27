@@ -68,8 +68,8 @@ vim.keymap.set({ "n", "v" }, "<C-Down>", function() jump("next") end,
 vim.keymap.set({ "n", "v" }, "<C-Up>", function() jump("prev") end,
   { silent = true, buffer = true, desc = "Markdown: previous heading" })
 
--- Intelligent protected line-wrapping for gw.
--- Since gw ignores formatexpr and formatprg, we remap gw to a custom operator.
+-- Intelligent protected line-wrapping for gW.
+-- Since gw ignores formatexpr and formatprg, we remap gW to a custom operator.
 _G.__markdown_gw_format = function(motion_type)
   local start_line = vim.api.nvim_buf_get_mark(0, "[")[1]
   local end_line = vim.api.nvim_buf_get_mark(0, "]")[1]
@@ -182,23 +182,23 @@ _G.__markdown_gw_format = function(motion_type)
   vim.fn.winrestview(saved_view)
 end
 
--- Buffer-local keymaps remapping gw to use our custom operator
-vim.keymap.set("n", "gw", function()
+-- Buffer-local keymaps remapping gW to use our custom operator
+vim.keymap.set("n", "gW", function()
   vim.go.operatorfunc = "v:lua.__markdown_gw_format"
   return "g@"
 end, { expr = true, buffer = true, desc = "Markdown: protected line-wrapping" })
 
-vim.keymap.set("x", "gw", function()
+vim.keymap.set("x", "gW", function()
   vim.go.operatorfunc = "v:lua.__markdown_gw_format"
   return "g@"
 end, { expr = true, buffer = true, desc = "Markdown: protected line-wrapping" })
 
-vim.keymap.set("n", "gww", function()
+vim.keymap.set("n", "gWW", function()
   vim.go.operatorfunc = "v:lua.__markdown_gw_format"
   return "g@_"
 end, { expr = true, buffer = true, desc = "Markdown: protected line-wrap current line" })
 
-vim.keymap.set("n", "gW", function()
+vim.keymap.set("n", "gw", function()
   local saved_view = vim.fn.winsaveview()
   vim.api.nvim_buf_set_mark(0, "[", 1, 0, {})
   local last_line = vim.api.nvim_buf_line_count(0)
