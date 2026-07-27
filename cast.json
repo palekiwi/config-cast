@@ -4,7 +4,7 @@
   "cpus": 1.0,
   "pids_limit": 1024,
   "extra_data_volumes": {
-    "cue": {
+    "config-cue": {
       "source": "~/.config/cue/",
       "target": "~/.config/cue/",
       "type": "bind",
