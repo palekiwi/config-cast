@@ -11,9 +11,13 @@
       "mode": "ro"
     }
   },
-  "nix_extra_substituters": ["https://palekiwi.cachix.org"],
+  "nix_extra_substituters": [
+    "https://palekiwi.cachix.org",
+    "https://cache.numtide.com"
+  ],
   "nix_extra_trusted_public_keys": [
-    "palekiwi.cachix.org-1:/S23j64quRTMpe+zteCPAd0p8fczVTWzOpV5mFoFOg8="
+    "palekiwi.cachix.org-1:/S23j64quRTMpe+zteCPAd0p8fczVTWzOpV5mFoFOg8=",
+    "niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g="
   ],
   "memory": "2048m",
   "forbidden_paths": [".envrc"],
