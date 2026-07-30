@@ -17,13 +17,13 @@ let
             enable = true;
           };
           lineNumberMode = "none";
-          autocmds = [
-            {
-              event = [ "VimEnter" ];
-              pattern = [ "*" ];
-              command = "startinsert";
-            }
-          ];
+          # autocmds = [
+          #   {
+          #     event = [ "VimEnter" ];
+          #     pattern = [ "*" ];
+          #     command = "startinsert";
+          #   }
+          # ];
           options = {
             scrolloff = 5;
           };
