@@ -39,6 +39,35 @@ let
                 ['*'] = require('vim.ui.clipboard.osc52').paste('*'),
               },
             }
+
+            -- Match opencode's "github dark" markdown rendering.
+            -- See .cue/master/task/match-opencode-markdown-scheme.md.
+            -- This runs in luaConfigPost (after the colorscheme and
+            -- render-markdown setup) so the explicit non-default calls
+            -- win over both the github theme and render-markdown's
+            -- default=true links. Re-applied on any later colorscheme
+            -- change.
+            do
+              local function apply()
+                vim.api.nvim_set_hl(0, "@markup.strong", { fg = "#d29922", bold = true })
+                vim.api.nvim_set_hl(0, "@markup.strong.markdown_inline", { fg = "#d29922", bold = true })
+                vim.api.nvim_set_hl(0, "@markup.italic", { fg = "#e3b341", italic = true })
+                vim.api.nvim_set_hl(0, "@markup.italic.markdown_inline", { fg = "#e3b341", italic = true })
+                vim.api.nvim_set_hl(0, "@markup.link", { fg = "#58a6ff", underline = true })
+                vim.api.nvim_set_hl(0, "@markup.link.markdown_inline", { fg = "#58a6ff", underline = true })
+                vim.api.nvim_set_hl(0, "@markup.link.label", { fg = "#39c5cf", underline = true })
+                vim.api.nvim_set_hl(0, "@markup.link.label.markdown_inline", { fg = "#39c5cf", underline = true })
+                vim.api.nvim_set_hl(0, "@markup.link.url", { fg = "#58a6ff", underline = true })
+                vim.api.nvim_set_hl(0, "@markup.link.url.markdown_inline", { fg = "#58a6ff", underline = true })
+                vim.api.nvim_set_hl(0, "RenderMarkdownLink", { fg = "#39c5cf", underline = true })
+                vim.api.nvim_set_hl(0, "RenderMarkdownDash", { fg = "#30363d" })
+              end
+              apply()
+              vim.api.nvim_create_autocmd("ColorScheme", {
+                group = vim.api.nvim_create_augroup("OpencodeMarkdownTheme", { clear = true }),
+                callback = apply,
+              })
+            end
           '';
           theme = {
             enable = true;
