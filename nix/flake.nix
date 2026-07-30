@@ -1,14 +1,6 @@
 {
   description = "Global CAST development environment";
 
-  # Declare the numtide binary cache so prebuilt harness packages are fetched
-  # rather than built from source. cast's dev container enables
-  # `accept-flake-config = true`, so these are honoured non-interactively.
-  nixConfig = {
-    extra-substituters = [ "https://cache.numtide.com" ];
-    extra-trusted-public-keys = [ "niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g=" ];
-  };
-
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
     flake-utils.url = "github:numtide/flake-utils";
