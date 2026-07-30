@@ -152,14 +152,7 @@ let
           languages.markdown.treesitter.enable = true;
           languages.markdown.extensions.render-markdown-nvim = {
             enable = true;
-            setupOpts = {
-              link = {
-                enabled = false;
-              };
-              code = {
-                enabled = false;
-              };
-            };
+            setupOpts = {};
           };
         };
       }
