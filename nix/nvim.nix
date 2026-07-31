@@ -16,7 +16,7 @@ let
           utility.motion.hop = {
             enable = true;
           };
-          lineNumberMode = "none";
+          lineNumberMode = "number";
           # autocmds = [
           #   {
           #     event = [ "VimEnter" ];

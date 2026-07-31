@@ -49,6 +49,10 @@ end
 -- Hard-wrap markdown prose at 80 columns.
 vim.opt_local.textwidth = 80
 
+-- Hide line numbers in markdown files.
+vim.opt_local.number = false
+vim.opt_local.relativenumber = false
+
 -- Repurpose `gc` (Comment.nvim) as a blockquote toggle: prefix lines with "> ".
 -- Markdown's stock commentstring is "<!-- %s -->", which is near-useless in
 -- prose; blockquotes are far more common. Comment.nvim falls back to
