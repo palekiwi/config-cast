@@ -154,6 +154,16 @@ let
           languages.typescript.treesitter.enable = true;
           languages.markdown.enable = true;
           languages.markdown.treesitter.enable = true;
+          # Structural markdown formatter run on demand via <leader>ff (see
+          # nix/runtime/ftplugin/markdown/init.lua). nvf's "mdformat" selector
+          # bundles mdformat + gfm/frontmatter/footnote plugins. mdformat
+          # defaults to --wrap=keep, so it normalizes structure (blank lines
+          # around headings/lists, list markers, trailing whitespace) without
+          # reflowing prose -- wrapping stays the job of the `gw` operator.
+          languages.markdown.format = {
+            enable = true;
+            type = ["mdformat"];
+          };
           languages.markdown.extensions.render-markdown-nvim = {
             enable = true;
             setupOpts = {};

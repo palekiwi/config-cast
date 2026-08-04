@@ -72,6 +72,15 @@ vim.keymap.set({ "n", "v" }, "<C-Down>", function() jump("next") end,
 vim.keymap.set({ "n", "v" }, "<C-Up>", function() jump("prev") end,
   { silent = true, buffer = true, desc = "Markdown: previous heading" })
 
+-- Manual structural formatting via conform + mdformat (<leader>ff = Space-f-f).
+-- mdformat defaults to --wrap=keep, so this only normalizes document structure
+-- (blank lines around headings/lists, list markers, trailing whitespace) and
+-- leaves prose wrapping to the `gw` operator below. Scoped to markdown so the
+-- keymap only exists where a formatter is actually configured.
+vim.keymap.set("n", "<leader>ff", function()
+  require("conform").format({ bufnr = 0 })
+end, { silent = true, buffer = true, desc = "Markdown: format buffer (mdformat)" })
+
 -- Intelligent protected line-wrapping for gW.
 -- Since gw ignores formatexpr and formatprg, we remap gW to a custom operator.
 _G.__markdown_gw_format = function(motion_type)
