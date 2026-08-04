@@ -16,6 +16,11 @@ let
           utility.motion.hop = {
             enable = true;
           };
+          # <leader> prefix for on-demand mappings (e.g. <leader>ff markdown
+          # format). Overrides nvf's default of Space. Note: this shadows the
+          # builtin `,` (reverse-repeat of f/F/t/T); forward repeat via `;`
+          # is unaffected.
+          globals.mapleader = ",";
           lineNumberMode = "number";
           # autocmds = [
           #   {
