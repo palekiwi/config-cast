@@ -108,7 +108,7 @@ _G.__markdown_gw_format = function(motion_type)
 
   local tree = parser:parse(true)[1]
   local root = tree:root()
-  local query_str = "((atx_heading) @heading) ((setext_heading) @heading) ((fenced_code_block) @code)"
+  local query_str = "((atx_heading) @heading) ((setext_heading) @heading) ((fenced_code_block) @code) ((pipe_table) @table)"
   local query_ok, query = pcall(vim.treesitter.query.parse, "markdown", query_str)
   if not query_ok or not query then
     -- Fallback: standard gw
