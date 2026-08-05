@@ -219,3 +219,23 @@ vim.keymap.set("n", "gw", function()
   _G.__markdown_gw_format("line")
   vim.fn.winrestview(saved_view)
 end, { buffer = true, desc = "Markdown: protected line-wrap entire file" })
+
+-- Combined wrap + format on <leader>fa (",fa"). Runs the protected line-wrap
+-- (`gw`) over the whole buffer, THEN mdformat via conform. mdformat runs LAST
+-- in --wrap=keep mode (conform's default), so it normalizes structure and
+-- re-indents list continuation lines while preserving the breaks `gw` just
+-- produced -- the order is what stops mdformat from unwrapping prose and stops
+-- `gw` from leaving list items un-indented. Exposed on _G so headless tests can
+-- call it directly.
+_G.__markdown_format_all = function()
+  local saved_view = vim.fn.winsaveview()
+  vim.api.nvim_buf_set_mark(0, "[", 1, 0, {})
+  local last_line = vim.api.nvim_buf_line_count(0)
+  vim.api.nvim_buf_set_mark(0, "]", last_line, 0, {})
+  _G.__markdown_gw_format("line")
+  require("conform").format({ bufnr = 0 })
+  vim.fn.winrestview(saved_view)
+end
+
+vim.keymap.set("n", "<leader>fa", _G.__markdown_format_all,
+  { silent = true, buffer = true, desc = "Markdown: wrap + format buffer" })
