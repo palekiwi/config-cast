@@ -16,8 +16,9 @@ let
           utility.motion.hop = {
             enable = true;
           };
-          # <leader> prefix for on-demand mappings (e.g. <leader>ff markdown
-          # format). Overrides nvf's default of Space. Note: this shadows the
+          # <leader> prefix for on-demand mappings (e.g. <leader>f markdown
+          # format-all, <leader>fm mdformat-only). Overrides nvf's default of
+          # Space. Note: this shadows the
           # builtin `,` (reverse-repeat of f/F/t/T); forward repeat via `;`
           # is unaffected.
           globals.mapleader = ",";
@@ -159,7 +160,7 @@ let
           languages.typescript.treesitter.enable = true;
           languages.markdown.enable = true;
           languages.markdown.treesitter.enable = true;
-          # Structural markdown formatter run on demand via <leader>ff (see
+          # Structural markdown formatter run on demand via <leader>fm (see
           # nix/runtime/ftplugin/markdown/init.lua). nvf's "mdformat" selector
           # bundles mdformat + gfm/frontmatter/footnote plugins. mdformat
           # defaults to --wrap=keep, so it normalizes structure (blank lines

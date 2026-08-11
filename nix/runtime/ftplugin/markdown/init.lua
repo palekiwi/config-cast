@@ -72,12 +72,15 @@ vim.keymap.set({ "n", "v" }, "<C-Down>", function() jump("next") end,
 vim.keymap.set({ "n", "v" }, "<C-Up>", function() jump("prev") end,
   { silent = true, buffer = true, desc = "Markdown: previous heading" })
 
--- Manual structural formatting via conform + mdformat (<leader>ff = Space-f-f).
--- mdformat defaults to --wrap=keep, so this only normalizes document structure
--- (blank lines around headings/lists, list markers, trailing whitespace) and
--- leaves prose wrapping to the `gw` operator below. Scoped to markdown so the
--- keymap only exists where a formatter is actually configured.
-vim.keymap.set("n", "<leader>ff", function()
+-- Manual structural formatting via conform + mdformat (",fm"). mdformat
+-- defaults to --wrap=keep, so this only normalizes document structure (blank
+-- lines around headings/lists, list markers, trailing whitespace) and leaves
+-- prose wrapping to the `gw` operator below. Scoped to markdown so the keymap
+-- only exists where a formatter is actually configured. Bound to <leader>fm
+-- rather than <leader>ff so it does not share a prefix with <leader>f (the
+-- combined wrap+format binding), which would otherwise impose a timeoutlen
+-- delay on the common ,f path.
+vim.keymap.set("n", "<leader>fm", function()
   require("conform").format({ bufnr = 0 })
 end, { silent = true, buffer = true, desc = "Markdown: format buffer (mdformat)" })
 
@@ -220,7 +223,7 @@ vim.keymap.set("n", "gw", function()
   vim.fn.winrestview(saved_view)
 end, { buffer = true, desc = "Markdown: protected line-wrap entire file" })
 
--- Combined wrap + format on <leader>fa (",fa"). Runs the protected line-wrap
+-- Combined wrap + format on <leader>f (",f"). Runs the protected line-wrap
 -- (`gw`) over the whole buffer, THEN mdformat via conform. mdformat runs LAST
 -- in --wrap=keep mode (conform's default), so it normalizes structure and
 -- re-indents list continuation lines while preserving the breaks `gw` just
@@ -237,5 +240,5 @@ _G.__markdown_format_all = function()
   vim.fn.winrestview(saved_view)
 end
 
-vim.keymap.set("n", "<leader>fa", _G.__markdown_format_all,
+vim.keymap.set("n", "<leader>f", _G.__markdown_format_all,
   { silent = true, buffer = true, desc = "Markdown: wrap + format buffer" })
