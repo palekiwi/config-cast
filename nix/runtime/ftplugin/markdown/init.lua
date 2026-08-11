@@ -72,15 +72,15 @@ vim.keymap.set({ "n", "v" }, "<C-Down>", function() jump("next") end,
 vim.keymap.set({ "n", "v" }, "<C-Up>", function() jump("prev") end,
   { silent = true, buffer = true, desc = "Markdown: previous heading" })
 
--- Manual structural formatting via conform + mdformat (",fm"). mdformat
+-- Manual structural formatting via conform + mdformat (",md"). mdformat
 -- defaults to --wrap=keep, so this only normalizes document structure (blank
 -- lines around headings/lists, list markers, trailing whitespace) and leaves
 -- prose wrapping to the `gw` operator below. Scoped to markdown so the keymap
--- only exists where a formatter is actually configured. Bound to <leader>fm
--- rather than <leader>ff so it does not share a prefix with <leader>f (the
--- combined wrap+format binding), which would otherwise impose a timeoutlen
--- delay on the common ,f path.
-vim.keymap.set("n", "<leader>fm", function()
+-- only exists where a formatter is actually configured. Bound to <leader>md
+-- (not <leader>ff) so it shares no prefix with <leader>f (",f", the combined
+-- wrap+format binding) -- otherwise both ,f and ,ff mapped would impose a
+-- timeoutlen delay on the common ,f path while Neovim waits to disambiguate.
+vim.keymap.set("n", "<leader>md", function()
   require("conform").format({ bufnr = 0 })
 end, { silent = true, buffer = true, desc = "Markdown: format buffer (mdformat)" })
 
