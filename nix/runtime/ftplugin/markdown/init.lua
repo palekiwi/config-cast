@@ -242,3 +242,134 @@ end
 
 vim.keymap.set("n", "<leader>f", _G.__markdown_format_all,
   { silent = true, buffer = true, desc = "Markdown: wrap + format buffer" })
+
+-- Convert GFM pipe tables to YAML-style lists on <leader>tl (",tl"),
+-- visual selection only. Tables are hard to scan as raw text; each row
+-- becomes a list item with the first column on the item line and the
+-- remaining columns as indented "Header: value" lines, e.g.
+--   | Option | Type |    ->  - Option: `wrap`
+--   | `wrap` | string |         Type: string
+-- One-way for now, but the header-as-key layout keeps a future reverse
+-- mapping (e.g. ,lt) lossless -- only the delimiter row's alignment
+-- hints are dropped. Cell text passes through verbatim (backticks,
+-- escaped pipes); treesitter already resolved cell boundaries, so "\|"
+-- and pipes inside code spans do not split cells.
+-- Selection semantics: every table overlapping the selection converts
+-- in full (a partial selection never truncates a table); other prose in
+-- the selection is left untouched. x-mode only (visual scope), and the
+-- key shares no prefix with <leader>f (see the <leader>md note above).
+-- Known limitation: a table indented inside a list item is replaced at
+-- column 0 (dedented).
+local function tl_trim(s)
+  return (s:gsub("^%s+", ""):gsub("%s+$", ""))
+end
+
+--- Collect the text of every pipe_table_cell child of a header/row node.
+---@param row_node TSNode
+---@return string[]
+local function tl_row_cells(row_node)
+  local cells = {}
+  for child in row_node:iter_children() do
+    if child:type() == "pipe_table_cell" then
+      cells[#cells + 1] = tl_trim(vim.treesitter.get_node_text(child, 0))
+    end
+  end
+  return cells
+end
+
+--- Render one table row as a list item line plus indented key lines.
+---@param headers string[]
+---@param cells string[]
+---@return string[]
+local function tl_list_item(headers, cells)
+  local lines = {}
+  for i, key in ipairs(headers) do
+    local value = cells[i] or ""
+    local text = key .. ":" .. (value ~= "" and (" " .. value) or "")
+    lines[#lines + 1] = (i == 1 and "- " or "  ") .. text
+  end
+  return lines
+end
+
+_G.__markdown_table_to_list = function(start_line, end_line)
+  if not (start_line and end_line) then
+    start_line = vim.api.nvim_buf_get_mark(0, "<")[1]
+    end_line = vim.api.nvim_buf_get_mark(0, ">")[1]
+  end
+  if not start_line or start_line == 0 or not end_line or end_line == 0 then
+    vim.notify("table-to-list: no visual selection", vim.log.levels.WARN)
+    return
+  end
+  if start_line > end_line then
+    start_line, end_line = end_line, start_line
+  end
+
+  local parser_ok, parser = pcall(vim.treesitter.get_parser, 0, "markdown")
+  if not parser_ok or not parser then
+    vim.notify("table-to-list: markdown parser unavailable",
+      vim.log.levels.WARN)
+    return
+  end
+  local query_ok, q = pcall(vim.treesitter.query.parse, "markdown",
+    "(pipe_table) @table")
+  if not query_ok or not q then
+    vim.notify("table-to-list: pipe_table query failed", vim.log.levels.WARN)
+    return
+  end
+
+  local sel_srow, sel_erow = start_line - 1, end_line - 1
+  local tables = {}
+  for _, node in q:iter_captures(parser:parse(true)[1]:root(), 0, 0, -1) do
+    local srow, _, erow, ecol = node:range()
+    local last_row = (ecol == 0 and erow > srow) and (erow - 1) or erow
+    if srow <= sel_erow and last_row >= sel_srow then
+      tables[#tables + 1] = { node = node, srow = srow, last_row = last_row }
+    end
+  end
+  if #tables == 0 then
+    vim.notify("table-to-list: no table in selection", vim.log.levels.WARN)
+    return
+  end
+
+  -- Replace bottom-up so earlier table ranges stay valid.
+  table.sort(tables, function(a, b) return a.srow > b.srow end)
+
+  local converted, skipped = 0, 0
+  for _, t in ipairs(tables) do
+    local header_node, rows = nil, {}
+    for child in t.node:iter_children() do
+      local ty = child:type()
+      if ty == "pipe_table_header" then
+        header_node = child
+      elseif ty == "pipe_table_row" then
+        rows[#rows + 1] = child
+      end
+    end
+    if not header_node or #rows == 0 then
+      skipped = skipped + 1
+    else
+      local headers = tl_row_cells(header_node)
+      local new_lines = {}
+      for _, row in ipairs(rows) do
+        vim.list_extend(new_lines, tl_list_item(headers, tl_row_cells(row)))
+      end
+      vim.api.nvim_buf_set_lines(0, t.srow, t.last_row + 1, false, new_lines)
+      converted = converted + 1
+    end
+  end
+
+  -- Drop the visual selection highlight left behind by the x-mode mapping.
+  if vim.fn.mode():find("^[vV\22]") then
+    vim.cmd("normal! \27")
+  end
+
+  local msg = ("table-to-list: converted %d table(s)"):format(converted)
+  if skipped > 0 then
+    msg = msg .. (", skipped %d (empty)"):format(skipped)
+  end
+  vim.notify(msg, vim.log.levels.INFO)
+end
+
+vim.keymap.set("x", "<leader>tl", function()
+  _G.__markdown_table_to_list()
+end, { silent = true, buffer = true, desc = "Markdown: table to list" })
