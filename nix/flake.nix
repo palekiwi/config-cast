@@ -42,6 +42,8 @@
         commonShellHook = ''
           export TZ="Asia/Taipei";
           export TZDIR="${pkgs.tzdata}/share/zoneinfo";
+
+          export GH_TOKEN=$GH_TOKEN_READONLY
           export GEMINI_API_KEY=$GOOGLE_GENERATIVE_AI_API_KEY
           export ZAI_API_KEY=$ZAI_CODING_PLAN_API_KEY
 
