@@ -111,7 +111,12 @@ _G.__markdown_gw_format = function(motion_type)
 
   local tree = parser:parse(true)[1]
   local root = tree:root()
-  local query_str = "((atx_heading) @heading) ((setext_heading) @heading) ((fenced_code_block) @code) ((pipe_table) @table)"
+  -- Frontmatter ("minus_metadata" = YAML `---`, "plus_metadata" = TOML `+++`)
+  -- is protected too: the grammar anchors both to the document start, so a
+  -- mid-document `---` (thematic break / setext underline) can never match.
+  -- Without this, gw joins the YAML into one paragraph and rewraps it at
+  -- textwidth, destroying the fences.
+  local query_str = "((minus_metadata) @frontmatter) ((plus_metadata) @frontmatter) ((atx_heading) @heading) ((setext_heading) @heading) ((fenced_code_block) @code) ((pipe_table) @table)"
   local query_ok, query = pcall(vim.treesitter.query.parse, "markdown", query_str)
   if not query_ok or not query then
     -- Fallback: standard gw
