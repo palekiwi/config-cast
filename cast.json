@@ -1,6 +1,17 @@
 {
   "global_shell": "universal",
-  "env_passthrough": ["GH_TOKEN_READONLY"],
+  "env_passthrough": [
+    "ANTHROPIC_API_KEY",
+    "CONTEXT7_API_KEY",
+    "GEMINI_API_KEY",
+    "GH_TOKEN_READONLY",
+    "GOOGLE_GENERATIVE_AI_API_KEY",
+    "OPENCODE_API_KEY",
+    "OPENCODE_CONFIG_DIR",
+    "OPENCODE_ENABLE_EXPERIMENTAL_MODELS",
+    "OPENCODE_DISABLE_PROJECT_CONFIG",
+    "ZAI_CODING_PLAN_API_KEY"
+  ],
   "memory": "2048m",
   "cpus": 1.0,
   "pids_limit": 1024,
@@ -8,6 +19,12 @@
     "config-cue": {
       "source": "~/.config/cue/",
       "target": "~/.config/cue/",
+      "type": "bind",
+      "mode": "ro"
+    },
+    "vendor": {
+      "source": "/home/pl/code/vendor/",
+      "target": "/home/pl/code/vendor/",
       "type": "bind",
       "mode": "rw"
     }
