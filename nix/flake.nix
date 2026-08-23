@@ -5,11 +5,11 @@
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
     flake-utils.url = "github:numtide/flake-utils";
     cue = {
-      url = "github:palekiwi-labs/cue/feat/git-pr-sync";
+      url = "github:palekiwi-labs/cue";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     cast = {
-      url = "github:palekiwi-labs/cast/2b25028b6cdcb4ff1a8d8dbb1624276fb2656a8d";
+      url = "github:palekiwi-labs/cast";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     nvf.url = "github:NotAShelf/nvf";
@@ -43,7 +43,6 @@
 
           inputs.cue.packages.${system}.cue
           inputs.cue.packages.${system}.git-pr-sync
-          inputs.cast.packages.${system}.cast-agent
           inputs.cast.packages.${system}.cast-mcp-client
         ];
 
