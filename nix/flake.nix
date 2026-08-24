@@ -42,6 +42,7 @@
           tree-sitter
 
           inputs.cue.packages.${system}.cue
+          inputs.cue.packages.${system}.git-cue-sync
           inputs.cue.packages.${system}.git-pr-sync
           inputs.cast.packages.${system}.cast-mcp-client
         ];
