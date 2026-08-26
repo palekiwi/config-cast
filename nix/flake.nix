@@ -61,22 +61,6 @@
         devShells = {
           default = pkgs.mkShell (envVars // {
             name = "cast-default";
-            buildInputs = commonInputs;
-            shellHook = commonShellHook;
-          });
-
-          opencode = pkgs.mkShell (envVars // {
-            name = "cast-opencode";
-            buildInputs = commonInputs ++ [
-              agents.opencode
-            ];
-            shellHook = commonShellHook;
-          });
-
-          # Universal shell exposing every harness in one environment.
-          # Selected via `global_shell = "universal"` in cast.json.
-          universal = pkgs.mkShell (envVars // {
-            name = "cast-universal";
             buildInputs = commonInputs ++ [
               agents.opencode
               agents.pi

@@ -2,8 +2,7 @@
 .direnv/
 .envrc
 .mem/
-cast.json
+cast.local.json
 cast.env
-cast-mcp.json
 tags
 worktrees

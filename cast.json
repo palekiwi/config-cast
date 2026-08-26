@@ -1,5 +1,5 @@
 {
-  "global_shell": "universal",
+  "sandbox_shell": "~/.config/cast/nix",
   "env_passthrough": [
     "ANTHROPIC_API_KEY",
     "CONTEXT7_API_KEY",
