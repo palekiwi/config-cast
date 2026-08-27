@@ -54,7 +54,7 @@
           export GEMINI_API_KEY=$GOOGLE_GENERATIVE_AI_API_KEY
           export ZAI_API_KEY=$ZAI_CODING_PLAN_API_KEY
 
-          echo "CAST Global Nix Environment Loaded" >&2
+          echo "CAST Default Nix Environment Loaded" >&2
         '';
       in
       {
