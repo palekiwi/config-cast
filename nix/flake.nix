@@ -37,6 +37,7 @@
           go-task
           herdr
           jq
+          python3
           ripgrep
           tree
           tree-sitter
