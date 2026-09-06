@@ -8,6 +8,10 @@
       url = "github:palekiwi-labs/cue";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    git-pr-sync = {
+      url = "github:palekiwi-labs/git-pr-sync";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     cast = {
       url = "github:palekiwi-labs/cast";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -43,7 +47,7 @@
           tree-sitter
 
           inputs.cue.packages.${system}.cue
-          inputs.cue.packages.${system}.git-pr-sync
+          inputs.git-pr-sync.packages.${system}.git-pr-sync
           inputs.cast.packages.${system}.cast-mcp-client
         ];
 
