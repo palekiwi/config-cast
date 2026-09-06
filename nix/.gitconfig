@@ -8,3 +8,14 @@
     defaultBranch = master
 [pull]
     rebase = true
+
+# Sandboxes have no ssh keys or known_hosts: rewrite GitHub ssh remotes
+# to https so fetch/pull works anonymously for public repos and via the
+# read-only gh token (credential helper) for private ones. Pushes are
+# expected to fail with a read-only token, which enforces the no-push
+# sandbox rule. Host checkouts are unaffected.
+[url "https://github.com/"]
+    insteadOf = git@github.com:
+    insteadOf = ssh://git@github.com/
+[credential "https://github.com"]
+    helper = !gh auth git-credential
