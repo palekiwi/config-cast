@@ -320,9 +320,12 @@ local function tw_wrap(text, width)
   for _, word in ipairs(tw_words(text)) do
     while tw_width(word) > width do
       flush()
+      -- Whole UTF-8 characters via the vimscript \zs split idiom: nvim's
+      -- Lua is LuaJIT (5.1), which has no Lua 5.3 `utf8` stdlib, so any
+      -- use of that global is a nil-index crash at runtime.
+      local chars = vim.fn.split(word, "\\zs")
       local seg = ""
-      for _, code in utf8.codes(word) do
-        local ch = utf8.char(code)
+      for _, ch in ipairs(chars) do
         if tw_width(seg .. ch) > width then
           break
         end
@@ -331,8 +334,7 @@ local function tw_wrap(text, width)
       if seg == "" then
         -- First char alone exceeds the column (double-width rune): emit it
         -- whole rather than corrupting UTF-8 with a byte-level cut.
-        local _, code = utf8.codes(word)()
-        seg = utf8.char(code)
+        seg = chars[1]
       end
       lines[#lines + 1] = seg
       word = word:sub(#seg + 1)
