@@ -229,80 +229,341 @@ vim.keymap.set("n", "gw", function()
 end, { buffer = true, desc = "Markdown: protected line-wrap entire file" })
 
 -- Combined wrap + format on <leader>f (",f"). Runs the protected line-wrap
--- (`gw`) over the whole buffer, THEN mdformat via conform. mdformat runs LAST
--- in --wrap=keep mode (conform's default), so it normalizes structure and
--- re-indents list continuation lines while preserving the breaks `gw` just
--- produced -- the order is what stops mdformat from unwrapping prose and stops
--- `gw` from leaving list items un-indented. Exposed on _G so headless tests can
--- call it directly.
+-- (`gw`) over the whole buffer, THEN mdformat via conform, THEN wraps pipe
+-- tables to textwidth. mdformat runs in --wrap=keep mode (conform's default),
+-- so it normalizes structure and re-indents list continuation lines while
+-- preserving the breaks `gw` just produced -- the order is what stops mdformat
+-- from unwrapping prose and stops `gw` from leaving list items un-indented.
+-- The table wrap runs after mdformat so single-line tables are normalized
+-- first and the wrap (which re-measures trimmed cell text) emits the canonical
+-- layout; its output is fully padded, so a later mdformat pass is a no-op on
+-- it. The buffer ends at the top: the point of ,f is paste-then-read.
+-- Exposed on _G so headless tests can call it directly.
 _G.__markdown_format_all = function()
-  local saved_view = vim.fn.winsaveview()
   vim.api.nvim_buf_set_mark(0, "[", 1, 0, {})
   local last_line = vim.api.nvim_buf_line_count(0)
   vim.api.nvim_buf_set_mark(0, "]", last_line, 0, {})
   _G.__markdown_gw_format("line")
   require("conform").format({ bufnr = 0 })
-  vim.fn.winrestview(saved_view)
+  _G.__markdown_wrap_tables(1, vim.api.nvim_buf_line_count(0))
+  vim.cmd("normal! gg")
 end
 
 vim.keymap.set("n", "<leader>f", _G.__markdown_format_all,
   { silent = true, buffer = true, desc = "Markdown: wrap + format buffer" })
 
--- Convert GFM pipe tables to YAML-style lists on <leader>tl (",tl"),
--- visual selection only. Tables are hard to scan as raw text; each row
--- becomes a list item with the first column on the item line and the
--- remaining columns as indented "Header: value" lines, e.g.
---   | Option | Type |    ->  - Option: `wrap`
---   | `wrap` | string |         Type: string
--- One-way for now, but the header-as-key layout keeps a future reverse
--- mapping (e.g. ,lt) lossless -- only the delimiter row's alignment
--- hints are dropped. Cell text passes through verbatim (backticks,
--- escaped pipes); treesitter already resolved cell boundaries, so "\|"
--- and pipes inside code spans do not split cells.
--- Selection semantics: every table overlapping the selection converts
--- in full (a partial selection never truncates a table); other prose in
--- the selection is left untouched. x-mode only (visual scope), and the
--- key shares no prefix with <leader>f (see the <leader>md note above).
--- Known limitation: a table indented inside a list item is replaced at
--- column 0 (dedented).
-local function tl_trim(s)
+-- Wrap GFM pipe tables to the fixed textwidth on <leader>tw (visual) and as
+-- the final step of <leader>f. Port of the opentui "full" table layout behind
+-- opencode's TUI tables: column widths start at the natural cell widths, then
+-- either expand to fill the target width exactly (opentui
+-- TextTable.ts:expandColumnWidths) or shrink by sqrt-weighted water-fill when
+-- content overflows, with cells word-wrapped into their column. One
+-- deliberate deviation: a column never shrinks below its longest single word
+-- unless even the word minima cannot fit (then words are hard-broken), since
+-- split words corrupt copied text. Output is one physical line per wrapped
+-- segment, fully padded, with an equals-filled rule between logical rows
+-- (the pipe-table stand-in for opencode's horizontal grid rules; see
+-- tw_rule for why dashes cannot be used) and the delimiter row's alignment
+-- markers preserved, padded.
+--
+-- This is a DISPLAY-ONLY transformation: GFM parses every physical line as a
+-- separate row, so a wrapped table renders as more rows in any real markdown
+-- renderer -- it exists to make pasted tables readable in the buffer.
+-- Re-application is a no-op: emitted rule rows are recognized, and a table
+-- already sitting exactly at the target width is treated as canonical and
+-- skipped (if a wrapped table is edited so lines lose the target width, a
+-- re-wrap rules between all remaining segments -- grouping is unrecoverable).
+--
+-- Selection semantics: every table overlapping the selection is wrapped in
+-- full (a partial selection never truncates a table); prose and untouched
+-- tables stay verbatim. x-mode only, and the key shares no prefix with
+-- <leader>f (see the <leader>md note above). Known limitation: a table
+-- indented inside a list item is replaced dedented at column 0.
+local function tw_trim(s)
   return (s:gsub("^%s+", ""):gsub("%s+$", ""))
 end
 
---- Collect the text of every pipe_table_cell child of a header/row node.
+--- Display width of a string (CJK- and tab-aware).
+---@param s string
+---@return integer
+local function tw_width(s)
+  return vim.fn.strdisplaywidth(s)
+end
+
+--- Split cell text into words (whitespace runs are separators).
+---@param s string
+---@return string[]
+local function tw_words(s)
+  local words = {}
+  for w in s:gmatch("%S+") do
+    words[#words + 1] = w
+  end
+  return words
+end
+
+--- Greedy word wrap at `width`; a word longer than `width` is hard-broken
+--- (the opentui fallback, reachable only when word minima overflow).
+---@param text string
+---@param width integer
+---@return string[]
+local function tw_wrap(text, width)
+  if width < 1 then
+    return { text }
+  end
+  local lines, cur = {}, nil
+  local function flush()
+    if cur then
+      lines[#lines + 1] = cur
+      cur = nil
+    end
+  end
+  for _, word in ipairs(tw_words(text)) do
+    while tw_width(word) > width do
+      flush()
+      local seg = ""
+      for _, code in utf8.codes(word) do
+        local ch = utf8.char(code)
+        if tw_width(seg .. ch) > width then
+          break
+        end
+        seg = seg .. ch
+      end
+      if seg == "" then
+        -- First char alone exceeds the column (double-width rune): emit it
+        -- whole rather than corrupting UTF-8 with a byte-level cut.
+        local _, code = utf8.codes(word)()
+        seg = utf8.char(code)
+      end
+      lines[#lines + 1] = seg
+      word = word:sub(#seg + 1)
+    end
+    if not cur then
+      cur = word
+    elseif tw_width(cur .. " " .. word) <= width then
+      cur = cur .. " " .. word
+    else
+      flush()
+      cur = word
+    end
+  end
+  flush()
+  if #lines == 0 then
+    lines[1] = ""
+  end
+  return lines
+end
+
+--- Compute content widths for `ncols` columns summing to `avail`: expand the
+--- natural widths evenly (opentui "full" mode fills the table to the target
+--- width), or shrink by sqrt-weighted water-fill floored at each column's
+--- longest word (wide columns give up proportionally more than narrow ones).
+---@param rows string[][] header first
+---@param ncols integer
+---@param avail integer
+---@return integer[]
+local function tw_column_widths(rows, ncols, avail)
+  local natural, minw = {}, {}
+  for j = 1, ncols do
+    natural[j], minw[j] = 1, 1
+  end
+  for _, row in ipairs(rows) do
+    for j = 1, ncols do
+      local cell = row[j] or ""
+      natural[j] = math.max(natural[j], tw_width(cell))
+      local mw = 1
+      for _, w in ipairs(tw_words(cell)) do
+        mw = math.max(mw, tw_width(w))
+      end
+      minw[j] = math.max(minw[j], mw)
+    end
+  end
+
+  local natsum, minsum = 0, 0
+  for j = 1, ncols do
+    natsum = natsum + natural[j]
+    minsum = minsum + minw[j]
+  end
+
+  local widths = {}
+  if natsum <= avail then
+    local extra = avail - natsum
+    local shared = math.floor(extra / ncols)
+    local rem = extra % ncols
+    for j = 1, ncols do
+      widths[j] = natural[j] + shared + (j <= rem and 1 or 0)
+    end
+    return widths
+  end
+
+  local floors = minw
+  if minsum > avail then
+    floors = {}
+    for j = 1, ncols do
+      floors[j] = 1
+    end
+  end
+
+  local budget = avail
+  for j = 1, ncols do
+    budget = budget - floors[j]
+    widths[j] = floors[j]
+  end
+  local cap, wsum = {}, 0.0
+  for j = 1, ncols do
+    cap[j] = natural[j] - floors[j]
+    wsum = wsum + math.sqrt(cap[j])
+  end
+  local frac, used = {}, 0
+  for j = 1, ncols do
+    local g = 0
+    if wsum > 0 and cap[j] > 0 then
+      local exact = (budget / wsum) * math.sqrt(cap[j])
+      g = math.min(cap[j], math.floor(exact + 1e-9))
+      frac[j] = exact - g
+    else
+      frac[j] = -1
+    end
+    widths[j] = widths[j] + g
+    used = used + g
+  end
+  -- Largest-remainder pass for the units the flooring dropped.
+  local order = {}
+  for j = 1, ncols do
+    order[j] = j
+  end
+  table.sort(order, function(a, b)
+    return frac[a] > frac[b]
+  end)
+  local i = 1
+  while used < budget do
+    local j = order[((i - 1) % ncols) + 1]
+    i = i + 1
+    if widths[j] < natural[j] then
+      widths[j] = widths[j] + 1
+      used = used + 1
+    end
+    if i > budget + ncols + 4 then
+      break -- paranoia: budget <= sum(cap) always terminates, but be safe
+    end
+  end
+  return widths
+end
+
+--- Right-pad a string to a display width.
+---@param s string
+---@param width integer
+---@return string
+local function tw_pad(s, width)
+  return s .. string.rep(" ", math.max(0, width - tw_width(s)))
+end
+
+--- One physical line from per-column segment texts.
+local function tw_join(cells, widths)
+  local padded = {}
+  for j = 1, #widths do
+    padded[j] = tw_pad(cells[j] or "", widths[j])
+  end
+  return "| " .. table.concat(padded, " | ") .. " |"
+end
+
+--- Rule row between logical rows. Filled with "=", not "-": tree-sitter
+--- (unlike strict GFM) parses a dashes-line after a data row as the
+--- delimiter row of a NEW table, which would fragment re-parsing; equals
+--- stay ordinary rows in every parser while still reading as a rule.
+--- Emitted in the same padded `| x |` form as data rows with trimmed
+--- width equal to the column width -- anything wider would make mdformat
+--- grow the column on the next ,f.
+local function tw_rule(widths)
+  local cells = {}
+  for j, w in ipairs(widths) do
+    cells[j] = tw_pad(string.rep("=", w), w)
+  end
+  return "| " .. table.concat(cells, " | ") .. " |"
+end
+
+--- Delimiter row with the original alignment markers preserved, padded in
+--- the same `| x |` form and trimmed width as data rows (see tw_rule).
+local function tw_delimiter(aligns, widths)
+  local cells = {}
+  for j, w in ipairs(widths) do
+    local a = aligns[j] or "none"
+    local cell
+    if a == "left" then
+      cell = ":" .. string.rep("-", math.max(1, w - 1))
+    elseif a == "right" then
+      cell = string.rep("-", math.max(1, w - 1)) .. ":"
+    elseif a == "center" then
+      cell = ":" .. string.rep("-", math.max(0, w - 2)) .. ":"
+    else
+      cell = string.rep("-", w)
+    end
+    cells[j] = tw_pad(cell, w)
+  end
+  return "| " .. table.concat(cells, " | ") .. " |"
+end
+
+--- Cell texts of a header/row node (pipe_table_cell children, trimmed).
 ---@param row_node TSNode
 ---@return string[]
-local function tl_row_cells(row_node)
+local function tw_row_cells(row_node)
   local cells = {}
   for child in row_node:iter_children() do
     if child:type() == "pipe_table_cell" then
-      cells[#cells + 1] = tl_trim(vim.treesitter.get_node_text(child, 0))
+      cells[#cells + 1] = tw_trim(vim.treesitter.get_node_text(child, 0))
     end
   end
   return cells
 end
 
---- Render one table row as a list item line plus indented key lines.
----@param headers string[]
----@param cells string[]
----@return string[]
-local function tl_list_item(headers, cells)
-  local lines = {}
-  for i, key in ipairs(headers) do
-    local value = cells[i] or ""
-    local text = key .. ":" .. (value ~= "" and (" " .. value) or "")
-    lines[#lines + 1] = (i == 1 and "- " or "  ") .. text
+--- Alignment kinds from the delimiter row, padded with "none".
+local function tw_aligns(delim_node, ncols)
+  local aligns = {}
+  if delim_node then
+    for child in delim_node:iter_children() do
+      if child:type() == "pipe_table_delimiter_cell" then
+        local txt = tw_trim(vim.treesitter.get_node_text(child, 0))
+        local l, r = txt:sub(1, 1) == ":", txt:sub(-1) == ":"
+        if l and r then
+          aligns[#aligns + 1] = "center"
+        elseif l then
+          aligns[#aligns + 1] = "left"
+        elseif r then
+          aligns[#aligns + 1] = "right"
+        else
+          aligns[#aligns + 1] = "none"
+        end
+      end
+    end
   end
-  return lines
+  while #aligns < ncols do
+    aligns[#aligns + 1] = "none"
+  end
+  return aligns
 end
 
-_G.__markdown_table_to_list = function(start_line, end_line)
+--- True for a row whose every cell is rule filler (dashes or equals) -- a
+--- rule row emitted by a previous wrap (recognized so re-wrapping
+--- converges). A legitimate data row of only filler would be dropped too;
+--- vanishingly rare, accepted.
+local function tw_is_rule_row(cells)
+  if #cells == 0 then
+    return false
+  end
+  for _, c in ipairs(cells) do
+    if not (c:match("^[:=%-]+$") and c:match("[%-=]")) then
+      return false
+    end
+  end
+  return true
+end
+
+_G.__markdown_wrap_tables = function(start_line, end_line)
   if not (start_line and end_line) then
     start_line = vim.api.nvim_buf_get_mark(0, "<")[1]
     end_line = vim.api.nvim_buf_get_mark(0, ">")[1]
   end
   if not start_line or start_line == 0 or not end_line or end_line == 0 then
-    vim.notify("table-to-list: no visual selection", vim.log.levels.WARN)
+    vim.notify("table-wrap: no visual selection", vim.log.levels.WARN)
     return
   end
   if start_line > end_line then
@@ -311,14 +572,13 @@ _G.__markdown_table_to_list = function(start_line, end_line)
 
   local parser_ok, parser = pcall(vim.treesitter.get_parser, 0, "markdown")
   if not parser_ok or not parser then
-    vim.notify("table-to-list: markdown parser unavailable",
-      vim.log.levels.WARN)
+    vim.notify("table-wrap: markdown parser unavailable", vim.log.levels.WARN)
     return
   end
   local query_ok, q = pcall(vim.treesitter.query.parse, "markdown",
     "(pipe_table) @table")
   if not query_ok or not q then
-    vim.notify("table-to-list: pipe_table query failed", vim.log.levels.WARN)
+    vim.notify("table-wrap: pipe_table query failed", vim.log.levels.WARN)
     return
   end
 
@@ -332,8 +592,13 @@ _G.__markdown_table_to_list = function(start_line, end_line)
     end
   end
   if #tables == 0 then
-    vim.notify("table-to-list: no table in selection", vim.log.levels.WARN)
+    vim.notify("table-wrap: no table in selection", vim.log.levels.WARN)
     return
+  end
+
+  local target = vim.bo.textwidth
+  if not target or target <= 0 then
+    target = 80
   end
 
   -- Replace bottom-up so earlier table ranges stay valid.
@@ -341,26 +606,93 @@ _G.__markdown_table_to_list = function(start_line, end_line)
 
   local converted, skipped = 0, 0
   for _, t in ipairs(tables) do
-    local header_node, rows = nil, {}
+    -- A table already laid out at the target width is canonical output:
+    -- skip it. Re-wrapping cannot recover logical-row grouping (GFM has no
+    -- multi-line cells), so a re-wrap would rule between every segment.
+    local raw = vim.api.nvim_buf_get_lines(0, t.srow, t.last_row + 1, false)
+    local canonical = #raw > 0
+    for _, l in ipairs(raw) do
+      if tw_width(l) ~= target then
+        canonical = false
+        break
+      end
+    end
+    if canonical then
+      skipped = skipped + 1
+      goto continue
+    end
+
+    local header_node, delim_node, rows = nil, nil, {}
     for child in t.node:iter_children() do
       local ty = child:type()
       if ty == "pipe_table_header" then
         header_node = child
+      elseif ty == "pipe_table_delimiter_row" then
+        delim_node = child
       elseif ty == "pipe_table_row" then
-        rows[#rows + 1] = child
+        local cells = tw_row_cells(child)
+        if not tw_is_rule_row(cells) then
+          rows[#rows + 1] = cells
+        end
       end
     end
-    if not header_node or #rows == 0 then
-      skipped = skipped + 1
-    else
-      local headers = tl_row_cells(header_node)
-      local new_lines = {}
-      for _, row in ipairs(rows) do
-        vim.list_extend(new_lines, tl_list_item(headers, tl_row_cells(row)))
-      end
-      vim.api.nvim_buf_set_lines(0, t.srow, t.last_row + 1, false, new_lines)
-      converted = converted + 1
+    if not header_node then
+      goto continue
     end
+
+    local all = { tw_row_cells(header_node) }
+    vim.list_extend(all, rows)
+    local ncols = 0
+    for _, row in ipairs(all) do
+      ncols = math.max(ncols, #row)
+    end
+    if ncols == 0 then
+      goto continue
+    end
+
+    -- Pipes (ncols+1) plus one space of cell padding on each side (2*ncols).
+    local avail = target - (ncols + 1) - 2 * ncols
+    if avail < ncols then
+      avail = ncols -- pathological column count: min widths, table overflows
+    end
+    local widths = tw_column_widths(all, ncols, avail)
+    local aligns = tw_aligns(delim_node, ncols)
+
+    -- Wrap every cell, then emit each row's segments as physical lines.
+    local segments = {}
+    for _, row in ipairs(all) do
+      local cols = {}
+      for j = 1, ncols do
+        cols[j] = tw_wrap(row[j] or "", widths[j])
+      end
+      local n = 1
+      for j = 1, ncols do
+        n = math.max(n, #cols[j])
+      end
+      local seg = {}
+      for s = 1, n do
+        local cells = {}
+        for j = 1, ncols do
+          cells[j] = cols[j][s] or ""
+        end
+        seg[s] = tw_join(cells, widths)
+      end
+      segments[#segments + 1] = seg
+    end
+
+    local new_lines = {}
+    vim.list_extend(new_lines, segments[1])
+    new_lines[#new_lines + 1] = tw_delimiter(aligns, widths)
+    for i = 2, #segments do
+      if i > 2 then
+        new_lines[#new_lines + 1] = tw_rule(widths)
+      end
+      vim.list_extend(new_lines, segments[i])
+    end
+    vim.api.nvim_buf_set_lines(0, t.srow, t.last_row + 1, false, new_lines)
+    converted = converted + 1
+
+    ::continue::
   end
 
   -- Drop the visual selection highlight left behind by the x-mode mapping.
@@ -368,13 +700,13 @@ _G.__markdown_table_to_list = function(start_line, end_line)
     vim.cmd("normal! \27")
   end
 
-  local msg = ("table-to-list: converted %d table(s)"):format(converted)
+  local msg = ("table-wrap: wrapped %d table(s) to width %d"):format(converted, target)
   if skipped > 0 then
-    msg = msg .. (", skipped %d (empty)"):format(skipped)
+    msg = msg .. (", skipped %d (already at width)"):format(skipped)
   end
   vim.notify(msg, vim.log.levels.INFO)
 end
 
-vim.keymap.set("x", "<leader>tl", function()
-  _G.__markdown_table_to_list()
-end, { silent = true, buffer = true, desc = "Markdown: table to list" })
+vim.keymap.set("x", "<leader>tw", function()
+  _G.__markdown_wrap_tables()
+end, { silent = true, buffer = true, desc = "Markdown: wrap table to textwidth" })
