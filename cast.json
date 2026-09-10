@@ -1,4 +1,5 @@
 {
+  "nix_version": "2.34.6",
   "sandbox_shell": "~/.config/cast/nix",
   "env_passthrough": [
     "ANTHROPIC_API_KEY",
