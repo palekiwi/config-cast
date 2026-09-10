@@ -23,6 +23,12 @@
       "type": "bind",
       "mode": "ro"
     },
+    "cue-store": {
+      "source": "~/cue/",
+      "target": "~/cue/",
+      "type": "bind",
+      "mode": "rw"
+    },
     "vendor": {
       "source": "/home/pl/code/vendor/",
       "target": "/home/pl/code/vendor/",

@@ -5,7 +5,16 @@
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
     flake-utils.url = "github:numtide/flake-utils";
     cue = {
-      url = "github:palekiwi-labs/cue";
+      url = "github:palekiwi-labs/cue/data-model-spike";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    # Pre-central-store cue, exposed as `cue-legacy` so the nine legacy
+    # `.cue/` stores stay readable while the plugins, skills and prompts
+    # migrate one at a time. Pinned to an exact rev so it cannot drift.
+    # Removed at cutover.
+    cue-legacy = {
+      url =
+        "github:palekiwi-labs/cue/6748aa3a8a4386fbff90d7aea63443aeb2bfcee7";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     git-pr-sync = {
@@ -31,8 +40,18 @@
         envVars = import ./env.nix { inherit pkgs; };
         agents = llm-agents.packages.${system};
 
+        # Both cue generations ship during the migration. Only the spike
+        # build owns the `cue` name; the legacy build is renamed rather
+        # than added directly, since both provide `bin/cue`.
+        cuePkgs = [
+          inputs.cue.packages.${system}.cue
+          (pkgs.writeShellScriptBin "cue-legacy" ''
+            exec ${inputs.cue-legacy.packages.${system}.cue}/bin/cue "$@"
+          '')
+        ];
+
         # Shared tooling available in every cast shell.
-        commonInputs = with pkgs; [
+        commonInputs = (with pkgs; [
           ast-grep
           curl
           customNeovim
@@ -45,8 +64,7 @@
           ripgrep
           tree
           tree-sitter
-
-          inputs.cue.packages.${system}.cue
+        ]) ++ cuePkgs ++ [
           inputs.git-pr-sync.packages.${system}.git-pr-sync
           inputs.cast.packages.${system}.cast-mcp-client
         ];
@@ -58,6 +76,11 @@
           export GH_TOKEN=$GH_TOKEN_READONLY
           export GEMINI_API_KEY=$GOOGLE_GENERATIVE_AI_API_KEY
           export ZAI_API_KEY=$ZAI_CODING_PLAN_API_KEY
+
+          # Central cue store. Required rather than convenient: a sandbox
+          # does not reproduce the host home layout, so the default
+          # (~/cue) is not safe to rely on here.
+          export CUE_STORE="$HOME/cue"
 
           echo "CAST Default Nix Environment Loaded" >&2
         '';
