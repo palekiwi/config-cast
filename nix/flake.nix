@@ -39,10 +39,10 @@
           fd
           gh
           go-task
-          herdr
           jq
           python3
           ripgrep
+          tmux
           tree
           tree-sitter
         ]) ++ [
