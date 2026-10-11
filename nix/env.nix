@@ -7,6 +7,8 @@
   GIT_CONFIG_KEY_1 = "core.excludesFile";
   GIT_CONFIG_VALUE_1 = "${./.gitignore}";
 
+  LANG = "C.UTF-8";
+
   # Editor
   EDITOR = "nvim";
 
