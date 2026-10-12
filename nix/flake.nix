@@ -42,6 +42,30 @@
           '';
         };
 
+        # Fuzzy window picker for the container tmux (prefix w). Lists
+        # windows coloured by pi state (tmux-state extension):
+        # blocked red, working yellow, finished-unseen green.
+        tmuxWindowPicker = pkgs.writeShellApplication {
+          name = "tmux-window-picker";
+          runtimeInputs = [ pkgs.fzf pkgs.gawk ];
+          text = ''
+            tmux list-windows -F \
+              '#{window_id}	#{@pi_state}	#{@pi_unseen}	#{window_active}	#W' \
+              | awk -F '\t' '{
+                  c = "";
+                  if ($2 == "blocked") c = "\033[31m";
+                  else if ($2 == "working") c = "\033[33m";
+                  else if ($3 == "1") c = "\033[32m";
+                  mark = ($4 == "1") ? "*" : " ";
+                  printf "%s\t%s %s%s\033[0m\n", $1, mark, c, $5;
+                }' \
+              | fzf --ansi --reverse --no-sort --delimiter '\t' \
+                  --with-nth 2 --prompt 'window> ' \
+              | cut -f1 \
+              | xargs -r tmux select-window -t
+          '';
+        };
+
         # Shared tooling available in every cast shell.
         commonInputs = (with pkgs; [
           ast-grep
@@ -57,6 +81,7 @@
           tree-sitter
         ]) ++ [
           castTmux
+          tmuxWindowPicker
           inputs.cue.packages.${system}.cue
           inputs.cue.packages.${system}.cue-agent
           inputs.git-pr-sync.packages.${system}.git-pr-sync
