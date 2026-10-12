@@ -49,18 +49,29 @@
           name = "tmux-window-picker";
           runtimeInputs = [ pkgs.fzf pkgs.gawk ];
           text = ''
+            # Rows: id, coloured label (hidden id field used for preview).
             tmux list-windows -F \
-              '#{window_id}	#{@pi_state}	#{@pi_unseen}	#{window_active}	#W' \
+              '#{window_id}	#{@pi_state}	#{@pi_unseen}	#{window_active}	#{@pi_ctx}	#W' \
               | awk -F '\t' '{
                   c = "";
                   if ($2 == "blocked") c = "\033[31m";
                   else if ($2 == "working") c = "\033[33m";
                   else if ($3 == "1") c = "\033[32m";
                   mark = ($4 == "1") ? "*" : " ";
-                  printf "%s\t%s %s%s\033[0m\n", $1, mark, c, $5;
+                  pct = "";
+                  if ($5 != "") {
+                    pc = "\033[90m";
+                    if ($5 + 0 >= 80) pc = "\033[31m";
+                    else if ($5 + 0 >= 50) pc = "\033[33m";
+                    pct = sprintf("  %s%s%%\033[0m", pc, $5);
+                  }
+                  printf "%s\t%s %s%s\033[0m%s\n", $1, mark, c, $6, pct;
                 }' \
               | fzf --ansi --reverse --no-sort --delimiter '\t' \
-                  --with-nth 2 --prompt "$(tmux display-message -p '#S')> " \
+                  --with-nth 2 --nth 1 \
+                  --prompt "$(tmux display-message -p '#S')> " \
+                  --preview "tmux display-message -p -t {1} '#{@pi_prompt}'" \
+                  --preview-window 'down,3,wrap' \
               | cut -f1 \
               | xargs -r tmux select-window -t
           '';
