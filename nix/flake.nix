@@ -85,6 +85,27 @@
           '';
         };
 
+        # Multi-agent code review driving cue-agent (nushell prototype).
+        # nu has no signal trap: on Ctrl-C it aborts with exit 1, so a
+        # bash wrapper records SIGINT and maps the exit to 130. cue-agent
+        # receives the same SIGINT and cleans up its own runs.
+        cueReviewNu = pkgs.writers.writeNuBin "cue-review-nu"
+          ./cue-review/cue-review.nu;
+        cueReview = pkgs.writeShellApplication {
+          name = "cue-review";
+          text = ''
+            interrupted=0
+            trap 'interrupted=1' INT TERM
+            rc=0
+            ${cueReviewNu}/bin/cue-review-nu "$@" || rc=$?
+            if [ "$interrupted" = 1 ]; then
+              echo "cue-review: interrupted; no further phases started" >&2
+              exit 130
+            fi
+            exit "$rc"
+          '';
+        };
+
         # Shared tooling available in every cast shell.
         commonInputs = (with pkgs; [
           ast-grep
@@ -101,6 +122,7 @@
         ]) ++ [
           castTmux
           tmuxWindowPicker
+          cueReview
           inputs.cue.packages.${system}.cue
           inputs.cue.packages.${system}.cue-agent
           inputs.git-pr-sync.packages.${system}.git-pr-sync
