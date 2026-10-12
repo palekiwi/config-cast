@@ -60,7 +60,7 @@
                   printf "%s\t%s %s%s\033[0m\n", $1, mark, c, $5;
                 }' \
               | fzf --ansi --reverse --no-sort --delimiter '\t' \
-                  --with-nth 2 --prompt 'window> ' \
+                  --with-nth 2 --prompt "$(tmux display-message -p '#S')> " \
               | cut -f1 \
               | xargs -r tmux select-window -t
           '';
