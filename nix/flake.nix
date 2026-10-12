@@ -58,12 +58,20 @@
                   else if ($2 == "working") c = "\033[33m";
                   else if ($3 == "1") c = "\033[32m";
                   mark = ($4 == "1") ? "*" : " ";
+                  # Context tokens, formatted and coloured like the pi
+                  # footer (cue thresholds: 80k caution, 100k soft, 140k hard).
                   pct = "";
                   if ($5 != "") {
+                    n = $5 + 0;
+                    if (n < 1000) t = n;
+                    else if (n < 10000) t = sprintf("%.1fk", n / 1000);
+                    else if (n < 1000000) t = sprintf("%dk", int(n / 1000 + 0.5));
+                    else t = sprintf("%.1fM", n / 1000000);
                     pc = "\033[37m";
-                    if ($5 + 0 >= 80) pc = "\033[31m";
-                    else if ($5 + 0 >= 50) pc = "\033[33m";
-                    pct = sprintf("  %s%s%%\033[0m", pc, $5);
+                    if (n >= 140000) pc = "\033[1;31m";
+                    else if (n >= 100000) pc = "\033[31m";
+                    else if (n >= 80000) pc = "\033[33m";
+                    pct = sprintf("  %s%s\033[0m", pc, t);
                   }
                   printf "%s\t%s %s%s\033[0m%s\n", $1, mark, c, $6, pct;
                 }' \
