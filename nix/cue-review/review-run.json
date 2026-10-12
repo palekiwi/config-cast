@@ -1,0 +1,12 @@
+{
+  "reviewers": [
+    { "name": "opus", "agent": "reviewer", "model": "opus",
+      "prompt": { "file": "prompts/review-run-review.md" } },
+    { "name": "sol", "agent": "reviewer", "model": "sol",
+      "prompt": { "file": "prompts/review-run-review.md" } }
+  ],
+  "verifiers": [
+    { "name": "opus", "agent": "verifier", "model": "opus",
+      "prompt": { "file": "prompts/review-run-verify.md" } }
+  ]
+}
