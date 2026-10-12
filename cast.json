@@ -17,12 +17,6 @@
   "cpus": 1.0,
   "pids_limit": 1024,
   "extra_data_volumes": {
-    "tmux-conf": {
-     "source": "/home/pl/.config/cast/nix/tmux.conf",
-     "target": "/home/pl/.config/tmux/tmux.conf",
-     "type": "bind",
-     "mode": "ro"
-    },
     "pi": { "type": "bind", "source": "~/.pi", "target": "~/.pi" },
     "opencode": {
       "type": "bind",

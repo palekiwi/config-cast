@@ -31,6 +31,17 @@
         envVars = import ./env.nix { inherit pkgs; };
         agents = llm-agents.packages.${system};
 
+        # tmux that always loads ./tmux.conf from the store, so the config
+        # ships with this flake instead of a bind mount.
+        castTmux = pkgs.symlinkJoin {
+          name = "tmux-cast";
+          paths = [ pkgs.tmux ];
+          nativeBuildInputs = [ pkgs.makeWrapper ];
+          postBuild = ''
+            wrapProgram $out/bin/tmux --add-flags "-f ${./tmux.conf}"
+          '';
+        };
+
         # Shared tooling available in every cast shell.
         commonInputs = (with pkgs; [
           ast-grep
@@ -42,10 +53,10 @@
           jq
           python3
           ripgrep
-          tmux
           tree
           tree-sitter
         ]) ++ [
+          castTmux
           inputs.cue.packages.${system}.cue
           inputs.cue.packages.${system}.cue-agent
           inputs.git-pr-sync.packages.${system}.git-pr-sync
