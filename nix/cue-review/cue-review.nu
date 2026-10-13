@@ -313,6 +313,9 @@ def "main pr" [
       ^cue context create $slug --title $"Review: ($info.title)" --mode review -C $repo
       log $"pr ($pr): created context ($slug)"
     }
+    # Keep the review in the operator's working set (idempotent marker).
+    let pin = (do { ^cue context pin $slug -C $repo } | complete)
+    if $pin.exit_code != 0 { log $"pr ($pr): warning: pin failed: ($pin.stderr | str trim)" }
     let fetch = (do { ^git -C $repo fetch origin $info.headRefName } | complete)
     if $fetch.exit_code != 0 { die $"pr ($pr): fetch failed: ($fetch.stderr | str trim)" }
     if not $foreground {
