@@ -87,21 +87,32 @@
 
         # Multi-agent code review driving cue-agent (nushell prototype).
         # nu has no signal trap: on Ctrl-C it aborts with exit 1, so a
-        # bash wrapper records SIGINT and maps the exit to 130. cue-agent
-        # receives the same SIGINT and cleans up its own runs.
+        # bash wrapper records SIGINT and maps the exit to 130; it also
+        # publishes @review_state on its tmux window (running/ok/failed)
+        # for the statusline. cue-agent receives the same SIGINT and
+        # cleans up its own runs.
         cueReviewNu = pkgs.writers.writeNuBin "cue-review-nu"
           ./cue-review/cue-review.nu;
         cueReview = pkgs.writeShellApplication {
           name = "cue-review";
           text = ''
+            set_review_state() {
+              if [ -n "$TMUX" ] && command -v tmux >/dev/null 2>&1; then
+                tmux set -q -w "@review_state=$1" 2>/dev/null || true
+              fi
+            }
+            set_review_state running
             interrupted=0
             trap 'interrupted=1' INT TERM
             rc=0
             ${cueReviewNu}/bin/cue-review-nu "$@" || rc=$?
             if [ "$interrupted" = 1 ]; then
               echo "cue-review: interrupted; no further phases started" >&2
+              set_review_state failed
               exit 130
             fi
+            state=$([ "$rc" = 0 ] && echo ok || echo failed)
+            set_review_state "$state"
             exit "$rc"
           '';
         };
