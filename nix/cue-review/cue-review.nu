@@ -3,6 +3,13 @@
 # Spec: palekiwi/palekiwi/cue-review-script/spec/index.md
 # Interfaces: palekiwi/palekiwi/cue-review-script/note/concrete-interfaces.md
 #
+# Targets: pr <N|branch>, branch [<name>], commit <sha>, range <base>..<head>.
+# Each target normalizes to resolved (base_sha, head_sha), a context name and
+# a window name, then hands off to one engine. Detached (review tmux session)
+# is the default; --foreground blocks. The engine always diffs tree-to-tree
+# between the two resolved SHAs; merge-base semantics live in the targets
+# (pr, branch, and the compat `run` alias), never in the engine.
+#
 # Exit codes: 0 all artifacts produced (or empty diff), 1 missing artifacts
 # or a phase produced none, 2 validation error before any agent ran,
 # 130 interrupted (mapped by the packaged bash wrapper, since nu aborts on
@@ -11,6 +18,7 @@
 const PHASES = [reviewers merge verifiers]
 const ENTRY_FIELDS = [name agent prompt model thinking system_prompt]
 const MAX_ENTRIES = 4
+const DEFAULT_MANIFEST = "~/.config/cast/nix/cue-review/review-run.json"
 
 def log [msg: string] { print -e $"cue-review: ($msg)" }
 
@@ -20,9 +28,12 @@ def die [msg: string, code: int = 2] {
 }
 
 def main [] {
-  print -e "usage: cue-review run --manifest <path> --context <slug> --base <ref> [--head <ref>] [-C <dir>]"
-  print -e "       cue-review pr <number-or-branch>... [--manifest <path>] [--foreground] [-C <dir>]"
+  print -e "usage: cue-review pr <number-or-branch>... [--context <slug>] [--foreground] [-C <dir>]"
+  print -e "       cue-review branch [<name>]... [--base <integration-ref>] [--context <slug>] [--foreground] [-C <dir>]"
+  print -e "       cue-review commit <sha>... [--context <slug>] [--foreground] [-C <dir>]"
+  print -e "       cue-review range <base>..<head>... [--context <slug>] [--foreground] [-C <dir>]"
   print -e "       cue-review status"
+  print -e "detached (review tmux session) is the default; --foreground blocks"
   exit 2
 }
 
@@ -86,10 +97,73 @@ def load-manifest [file: path] {
   } | reduce -f {} {|it, acc| $acc | insert $it.phase $it.entries }
 }
 
+def repo-of [dir: path] {
+  let top = (do { ^git -C $dir rev-parse --show-toplevel } | complete)
+  if $top.exit_code != 0 { die $"not a git repository: ($dir)" }
+  $top.stdout | str trim
+}
+
 def rev-parse [dir: path, ref: string] {
   let r = (do { ^git -C $dir rev-parse --verify --quiet $"($ref)^{commit}" } | complete)
   if $r.exit_code != 0 { die $"cannot resolve ref: ($ref)" }
   $r.stdout | str trim
+}
+
+def merge-base-of [repo: path, a: string, b: string] {
+  let r = (do { ^git -C $repo merge-base $a $b } | complete)
+  if $r.exit_code != 0 {
+    die $"no merge-base between ($a) and ($b); are they from unrelated histories?"
+  }
+  $r.stdout | str trim
+}
+
+# The default branch of origin, or the --base override. Never guesses:
+# without origin/HEAD and without --base, fail with a hint.
+def integration-ref [repo: path, base: any] {
+  if $base != null { return $base }
+  let r = (do { ^git -C $repo symbolic-ref --quiet refs/remotes/origin/HEAD } | complete)
+  if $r.exit_code != 0 {
+    die "cannot determine the default branch (origin/HEAD is unset); pass --base <integration-ref>"
+  }
+  $r.stdout | str trim | str replace -r '^refs/remotes/' ''
+}
+
+def slugify [name: string] {
+  $name | str lowercase
+  | str replace -a '/' '-'
+  | str replace -a -r '[^a-z0-9._-]' '-'
+  | str trim -c '-'
+}
+
+# Create the review context if missing, then pin it (idempotent marker).
+def ensure-context [repo: path, slug: string, title: string] {
+  if ((do { ^cue status -C $repo --context $slug } | complete).exit_code != 0) {
+    ^cue context create $slug --title $title --mode review -C $repo
+    log $"created context ($slug)"
+  }
+  let pin = (do { ^cue context pin $slug -C $repo } | complete)
+  if $pin.exit_code != 0 { log $"warning: pin failed: ($pin.stderr | str trim)" }
+}
+
+# Set @<key> window options on a tmux window: the given target, else the
+# window running this process (no-op outside tmux). Links a window to its
+# review for the picker and `status`.
+def tag-window [opts: record, --target: string] {
+  let target = ($target | default ($env.TMUX_PANE? | default ""))
+  if ($target | is-empty) { return }
+  for kv in ($opts | transpose k v) {
+    do { ^tmux set -q -w -t $target $"@($kv.k)" $kv.v } | complete | ignore
+  }
+}
+
+# Is a review window for this context still running?
+def running-for [context: string] {
+  if ((do { ^tmux has-session -t review } | complete).exit_code != 0) { return false }
+  let rows = (^tmux list-windows -t review -F "#{@review_context}\t#{@review_state}" | split row "\n")
+  $rows | any {|l|
+    let p = ($l | split column "\t" c s | first)
+    $p.c == $context and $p.s == "running"
+  }
 }
 
 def input-block [ctx: record, phase: string, name: string, inputs: list<string>] {
@@ -187,24 +261,24 @@ def run-phase [ctx: record, phase: string, entries: list, inputs: list<string>] 
   { produced: $produced, missing: (($entries | length) - ($produced | length)), interrupted: $interrupted }
 }
 
-# Run a multi-agent review of <base>...<head>.
-def run-review [manifest: path, context: string, base: string, head: string, dir: path] {
-  let top = (do { ^git -C $dir rev-parse --show-toplevel } | complete)
-  if $top.exit_code != 0 { die $"not a git repository: ($dir)" }
-  let repo = ($top.stdout | str trim)
+# The engine. base and head are resolved SHAs; the diff is exactly
+# tree-to-tree between them. target (optional) records lineage for run.json.
+def run-review [
+  manifest: path, context: string, base_sha: string, head_sha: string,
+  dir: path, target: record = { kind: run }
+] {
+  let repo = (repo-of $dir)
 
   let status = (do { ^cue status -C $repo --context $context --json } | complete)
   if $status.exit_code != 0 { die $"context not found in this repository's scope: ($context)" }
   let st = ($status.stdout | from json)
 
   let m = (load-manifest ($manifest | path expand))
-  let base_sha = (rev-parse $repo $base)
-  let head_sha = (rev-parse $repo $head)
 
-  let diff = (do { ^git -C $repo diff $"($base_sha)...($head_sha)" } | complete)
+  let diff = (do { ^git -C $repo diff $base_sha $head_sha } | complete)
   if $diff.exit_code != 0 { die $"git diff failed: ($diff.stderr | str trim)" }
   if ($diff.stdout | str trim | is-empty) {
-    log $"nothing to review: ($base)...($head) is empty"
+    log $"nothing to review: ($base_sha | str substring 0..9)..($head_sha | str substring 0..9) is empty"
     return 0
   }
   let dirty = (^git -C $repo status --porcelain | str trim)
@@ -220,6 +294,21 @@ def run-review [manifest: path, context: string, base: string, head: string, dir
   let diff_path = ($added.stdout | lines | where {|l| $l | str ends-with "/review.diff" } | last | str trim)
   let run_id = ($diff_path | path dirname | path basename)
 
+  # Lineage record: what was fired, what it resolved to. Never trust older
+  # runs' findings just because the context matches.
+  let record_file = (mktemp -t cue-review-run.XXXXXX.json)
+  {
+    target: $target
+    base: $base_sha
+    head: $head_sha
+    context: $st.address
+    run_id: $run_id
+    diff: $diff_path
+  } | to json | save -f $record_file
+  let rec = (do { ^cue add -C $repo --type review --context $context --file $record_file $"($run_id)/run.json" } | complete)
+  rm -f $record_file
+  if $rec.exit_code != 0 { log $"warning: run record failed: ($rec.stderr | str trim)" }
+
   let ctx = {
     slug: $context
     address: $st.address
@@ -231,7 +320,7 @@ def run-review [manifest: path, context: string, base: string, head: string, dir
     diff: $diff_path
   }
   tag-window { review_context: $context, review_run: $run_id }
-  log $"run ($run_id): ($base_sha | str substring 0..9)...($head_sha | str substring 0..9) in ($st.address)"
+  log $"run ($run_id): ($base_sha | str substring 0..9)..($head_sha | str substring 0..9) in ($st.address)"
 
   mut inputs = []
   mut summary = []
@@ -259,40 +348,54 @@ def run-review [manifest: path, context: string, base: string, head: string, dir
   return (if $missing > 0 { 1 } else { 0 })
 }
 
-# Run a multi-agent review of <base>...<head>.
-def "main run" [
-  --manifest: path   # Pipeline manifest (JSON)
-  --context: string  # Existing cue context slug in the repo's scope
-  --base: string     # Base ref; the diff is <base>...<head>
-  --head: string = "HEAD"  # Head ref to review
-  -C: path           # Repository directory (default: current)
-] {
-  if $manifest == null { die "--manifest is required" }
-  if $context == null { die "--context is required" }
-  if $base == null { die "--base is required" }
-  exit (run-review $manifest $context $base $head ($C | default $env.PWD | path expand))
+# Take a fully normalized target and either run it here (--foreground) or
+# fire a review tmux window. Detached success means accepted, not reviewed.
+# t: { kind, base_sha, head_sha, refs, context, title, window, pr? }
+def dispatch [repo: path, manifest: path, t: record, --foreground, --force] {
+  ensure-context $repo $t.context $t.title
+  if $foreground {
+    exit (run-review $manifest $t.context $t.base_sha $t.head_sha $repo $t)
+  }
+  if not $force and (running-for $t.context) {
+    die $"a review window for ($t.context) is already running; pass --force to fire anyway"
+  }
+  if ((do { ^tmux has-session -t review } | complete).exit_code != 0) {
+    ^tmux new-session -d -s review
+  }
+  let cmd = $"cue-review run --manifest ($manifest) --context ($t.context) --base ($t.base_sha) --head ($t.head_sha) -C ($repo); exec bash"
+  let win = (^tmux new-window -t review -n $t.window -P -F '#{window_id}' $cmd | str trim)
+  mut tags = {
+    review_target: $t.kind
+    review_context: $t.context
+    review_title: $t.title
+    review_base: ($t.base_sha | str substring 0..9)
+    review_head: ($t.head_sha | str substring 0..9)
+  }
+  if $t.pr? != null { $tags = ($tags | insert review_pr $t.pr) }
+  tag-window --target $win $tags
+  print $"fired review window: ($t.window) \(($t.context)\) [($t.refs)] run ($win)"
 }
 
-# Review GitHub PRs by number or branch: check they exist, fetch refs,
-# ensure a review-<branch-slug> context per PR, then fire one window per
-# PR in the review tmux session (created if absent). Non-blocking; check
-# cue-review status later. --foreground runs in this shell instead.
+def check-single-context [context: any, n: int] {
+  if $context != null and $n > 1 {
+    die "--context names one context; give it with a single target only"
+  }
+}
+
+# Review GitHub PRs by number or branch. gh resolves the PR; refs are
+# resolved to SHAs here, before anything detaches.
 def "main pr" [
   ...prs: string     # PR numbers or branch names
-  --manifest: string = ~/.config/cast/nix/cue-review/review-run.json  # Pipeline manifest
-  --context: string  # Context slug; default review-<branch-slug>. Only with one PR
+  --manifest: string = $DEFAULT_MANIFEST  # Pipeline manifest
+  --context: string  # Context slug; default review-<branch-slug>. Single PR only
   --foreground       # Run in this shell instead of the review tmux session
+  --force            # Fire even if a window for the context is already running
   -C: path           # Repository directory (default: current)
 ] {
   if ($prs | is-empty) { die "give at least one PR number or branch" }
-  if $context != null and ($prs | length) > 1 {
-    die "--context names one context; give it with a single PR only"
-  }
+  check-single-context $context ($prs | length)
   let manifest = ($manifest | path expand)
-  let dir = ($C | default $env.PWD | path expand)
-  let top = (do { ^git -C $dir rev-parse --show-toplevel } | complete)
-  if $top.exit_code != 0 { die $"not a git repository: ($dir)" }
-  let repo = ($top.stdout | str trim)
+  let repo = (repo-of ($C | default $env.PWD | path expand))
 
   mut rc = 0
   for pr in $prs {
@@ -304,49 +407,148 @@ def "main pr" [
       continue
     }
     let info = ($view.stdout | from json)
-    let slug = ($context | default ($info.headRefName | str lowercase
-      | str replace -a '/' '-'
-      | str replace -r '[^a-z0-9._-]' '-'
-      | str trim -c '-'
-      | $"review-($in)"))
-    if ((do { ^cue status -C $repo --context $slug } | complete).exit_code != 0) {
-      ^cue context create $slug --title $"Review: ($info.title)" --mode review -C $repo
-      log $"pr ($pr): created context ($slug)"
-    }
-    # Keep the review in the operator's working set (idempotent marker).
-    let pin = (do { ^cue context pin $slug -C $repo } | complete)
-    if $pin.exit_code != 0 { log $"pr ($pr): warning: pin failed: ($pin.stderr | str trim)" }
     let fetch = (do { ^git -C $repo fetch origin $info.headRefName } | complete)
-    if $fetch.exit_code != 0 { die $"pr ($pr): fetch failed: ($fetch.stderr | str trim)" }
-    if not $foreground {
-      if ((do { ^tmux has-session -t review } | complete).exit_code != 0) {
-        ^tmux new-session -d -s review
-      }
-    }
-    log $"pr ($pr): ($info.title) [( $info.baseRefName )..( $info.headRefName )] as ($slug)"
-    if $foreground {
-      let code = (run-review $manifest $slug $"origin/($info.baseRefName)" $"origin/($info.headRefName)" $repo)
-      if $code == 130 { exit 130 }
-      if $code > $rc { $rc = $code }
-    } else {
-      let cmd = $"cue-review run --manifest ($manifest) --context ($slug) --base origin/($info.baseRefName) --head origin/($info.headRefName) -C ($repo); exec bash"
-      let win = (^tmux new-window -t review -n $"pr-($pr)" -P -F '#{window_id}' $cmd | str trim)
-      tag-window --target $win { review_pr: $"($pr)", review_context: $slug, review_title: $info.title }
-      print $"fired review window: pr-($pr) \(($slug)\)"
-    }
+    if $fetch.exit_code != 0 { log $"pr ($pr): fetch failed: ($fetch.stderr | str trim)"; $rc = 1; continue }
+    let head_sha = (rev-parse $repo $"origin/($info.headRefName)")
+    let base_sha = (merge-base-of $repo $"origin/($info.baseRefName)" $head_sha)
+    dispatch $repo $manifest {
+      kind: pr
+      pr: $pr
+      base_sha: $base_sha
+      head_sha: $head_sha
+      refs: $"($info.baseRefName)..($info.headRefName)"
+      context: ($context | default $"review-(slugify $info.headRefName)")
+      title: $"Review: ($info.title)"
+      window: $"pr-($pr)"
+    } --foreground=$foreground --force=$force
   }
   exit $rc
 }
 
-# Set @<key> window options on a tmux window: the given target, else the
-# window running this process (no-op outside tmux). Links a window to its
-# review for the picker and `status`.
-def tag-window [opts: record, --target: string] {
-  let target = ($target | default ($env.TMUX_PANE? | default ""))
-  if ($target | is-empty) { return }
-  for kv in ($opts | transpose k v) {
-    do { ^tmux set -q -w -t $target $"@($kv.k)" $kv.v } | complete | ignore
+# Review a local branch (default: the current branch) before any PR exists.
+# Base is the merge-base with the integration ref (--base or origin/HEAD).
+# The context name matches the PR context, so a later `pr` reuses it.
+def "main branch" [
+  ...names: string    # Branch names; default: the current branch
+  --base: string      # Integration ref for the merge-base (default: origin/HEAD)
+  --manifest: string = $DEFAULT_MANIFEST
+  --context: string   # Context slug; default review-<branch-slug>. Single target only
+  --foreground        # Run in this shell instead of the review tmux session
+  --force             # Fire even if a window for the context is already running
+  -C: path            # Repository directory (default: current)
+] {
+  let branches = if ($names | is-empty) {
+    let cur = (do { ^git -C ($C | default $env.PWD | path expand) rev-parse --abbrev-ref HEAD } | complete)
+    if $cur.exit_code != 0 { die $"cannot determine current branch: ($cur.stderr | str trim)" }
+    [($cur.stdout | str trim)]
+  } else { $names }
+  check-single-context $context ($branches | length)
+  let manifest = ($manifest | path expand)
+  let repo = (repo-of ($C | default $env.PWD | path expand))
+  let integ = (integration-ref $repo $base)
+
+  for name in $branches {
+    let head_sha = (rev-parse $repo $name)
+    let base_sha = (merge-base-of $repo $integ $head_sha)
+    let tail = ($name | split row '/' | last | str substring 0..15)
+    dispatch $repo $manifest {
+      kind: branch
+      base_sha: $base_sha
+      head_sha: $head_sha
+      refs: $"($integ)..($name)"
+      context: ($context | default $"review-(slugify $name)")
+      title: $"Review branch ($name)"
+      window: $"b-($tail)"
+    } --foreground=$foreground --force=$force
   }
+}
+
+# Review a single commit. Base is its first parent; merge commits review
+# against their first parent, root commits are rejected.
+def "main commit" [
+  ...shas: string     # Commits (SHAs or anything rev-parse resolves)
+  --manifest: string = $DEFAULT_MANIFEST
+  --context: string   # Context slug; default review-c-<sha10>. Single target only
+  --foreground        # Run in this shell instead of the review tmux session
+  --force             # Fire even if a window for the context is already running
+  -C: path            # Repository directory (default: current)
+] {
+  if ($shas | is-empty) { die "give at least one commit" }
+  check-single-context $context ($shas | length)
+  let manifest = ($manifest | path expand)
+  let repo = (repo-of ($C | default $env.PWD | path expand))
+
+  for sha in $shas {
+    let head_sha = (rev-parse $repo $sha)
+    let parent = (do { ^git -C $repo rev-parse --verify --quiet $"($head_sha)^" } | complete)
+    if $parent.exit_code != 0 { die $"commit ($sha | str substring 0..9) has no parent (root commit?); use range <empty-tree>..<sha> instead" }
+    let base_sha = ($parent.stdout | str trim)
+    let s10 = ($head_sha | str substring 0..9)
+    dispatch $repo $manifest {
+      kind: commit
+      base_sha: $base_sha
+      head_sha: $head_sha
+      refs: $"($base_sha | str substring 0..9)..($s10)"
+      context: ($context | default $"review-c-($s10)")
+      title: $"Review commit ($s10)"
+      window: $"c-($head_sha | str substring 0..6)"
+    } --foreground=$foreground --force=$force
+  }
+}
+
+# Review an explicit commit range, tree-to-tree: exactly what you typed,
+# no merge-base substitution. Two-dot syntax only.
+def "main range" [
+  ...ranges: string   # Ranges as <base>..<head>
+  --manifest: string = $DEFAULT_MANIFEST
+  --context: string   # Context slug; default review-r-<base10>-<head10>. Single target only
+  --foreground        # Run in this shell instead of the review tmux session
+  --force             # Fire even if a window for the context is already running
+  -C: path            # Repository directory (default: current)
+] {
+  if ($ranges | is-empty) { die "give at least one range as <base>..<head>" }
+  check-single-context $context ($ranges | length)
+  let manifest = ($manifest | path expand)
+  let repo = (repo-of ($C | default $env.PWD | path expand))
+
+  for r in $ranges {
+    if $r =~ '\.\.\.' { die $"range ($r): three-dot syntax is not supported; this diff is exact, use ($r | str replace '...' '..')" }
+    let parts = ($r | split row '..')
+    if ($parts | length) != 2 or ($parts | any {|p| $p | is-empty}) {
+      die $"range ($r): expected <base>..<head>"
+    }
+    let base_sha = (rev-parse $repo $parts.0)
+    let head_sha = (rev-parse $repo $parts.1)
+    let b10 = ($base_sha | str substring 0..9)
+    let h10 = ($head_sha | str substring 0..9)
+    dispatch $repo $manifest {
+      kind: range
+      base_sha: $base_sha
+      head_sha: $head_sha
+      refs: $"($b10)..($h10)"
+      context: ($context | default $"review-r-($b10)-($h10)")
+      title: $"Review range ($b10)..($h10)"
+      window: $"r-($head_sha | str substring 0..6)"
+    } --foreground=$foreground --force=$force
+  }
+}
+
+# Compat alias: blocking engine call with merge-base semantics, matching the
+# historical three-dot behaviour. Prefer the target subcommands.
+def "main run" [
+  --manifest: path   # Pipeline manifest (JSON)
+  --context: string  # Existing cue context slug in the repo's scope
+  --base: string     # Base ref; the diff is merge-base(<base>,<head>)..<head>
+  --head: string = "HEAD"  # Head ref to review
+  -C: path           # Repository directory (default: current)
+] {
+  if $manifest == null { die "--manifest is required" }
+  if $context == null { die "--context is required" }
+  if $base == null { die "--base is required" }
+  let repo = (repo-of ($C | default $env.PWD | path expand))
+  let head_sha = (rev-parse $repo $head)
+  let base_sha = (merge-base-of $repo $base $head_sha)
+  exit (run-review ($manifest | path expand) $context $base_sha $head_sha $repo { kind: run })
 }
 
 # State of review windows in the review tmux session.
@@ -355,8 +557,8 @@ def "main status" [] {
     log "no review session"
     return
   }
-  ^tmux list-windows -t review -F "#{@review_state}#{?@review_state,,pending}\t#{window_name}\t#{@review_context}\t#{@review_run}\t#{@review_title}"
-  | lines | each {|l| $l | split column "\t" state name context run title } | flatten
+  ^tmux list-windows -t review -F "#{@review_state}#{?@review_state,,pending}\t#{window_name}\t#{@review_target}\t#{@review_context}\t#{@review_run}\t#{@review_title}"
+  | lines | each {|l| $l | split column "\t" state name target context run title } | flatten
 }
 
 def print-summary [ctx: record, summary: list] {
