@@ -295,9 +295,10 @@ def "main pr" [
 
   mut rc = 0
   for pr in $prs {
-    let view = (do { ^gh pr view $pr -R $repo --json headRefName,baseRefName,title } | complete)
+    # gh -R wants OWNER/REPO, not a path: run gh from the checkout instead.
+    let view = (do { cd $repo; ^gh pr view $pr --json headRefName,baseRefName,title } | complete)
     if $view.exit_code != 0 {
-      log $"pr ($pr): not found or not accessible"
+      log $"pr ($pr): gh pr view failed: ($view.stderr | str trim)"
       $rc = 1
       continue
     }
