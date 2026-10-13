@@ -44,17 +44,22 @@
 
         # Fuzzy window picker for the container tmux (prefix w). Lists
         # windows coloured by pi state (tmux-state extension):
-        # blocked red, working yellow, finished-unseen green.
+        # blocked red, working yellow, finished-unseen green. Review
+        # windows (cue-review) colour by @review_state, show their cue
+        # context dimmed, and preview PR title, context and run id.
         tmuxWindowPicker = pkgs.writeShellApplication {
           name = "tmux-window-picker";
           runtimeInputs = [ pkgs.fzf pkgs.gawk ];
           text = ''
             # Rows: id, coloured label (hidden id field used for preview).
             tmux list-windows -F \
-              '#{window_id}	#{@pi_state}	#{@pi_unseen}	#{window_active}	#{@pi_ctx}	#W' \
+              '#{window_id}	#{@pi_state}	#{@pi_unseen}	#{window_active}	#{@pi_ctx}	#W	#{@review_state}	#{@review_context}' \
               | awk -F '\t' '{
                   c = "";
-                  if ($2 == "blocked") c = "\033[31m";
+                  if ($7 == "failed") c = "\033[31m";
+                  else if ($7 == "running") c = "\033[33m";
+                  else if ($7 == "ok") c = "\033[32m";
+                  else if ($2 == "blocked") c = "\033[31m";
                   else if ($2 == "working") c = "\033[33m";
                   else if ($3 == "1") c = "\033[32m";
                   mark = ($4 == "1") ? "*" : " ";
@@ -73,12 +78,13 @@
                     else if (n >= 80000) pc = "\033[33m";
                     pct = sprintf("  %s%s\033[0m", pc, t);
                   }
-                  printf "%s\t%s %s%s\033[0m%s\n", $1, mark, c, $6, pct;
+                  rv = ($8 != "") ? sprintf("  \033[2m%s\033[0m", $8) : "";
+                  printf "%s\t%s %s%s\033[0m%s%s\n", $1, mark, c, $6, pct, rv;
                 }' \
               | fzf --ansi --reverse --no-sort --delimiter '\t' \
                   --with-nth 2 --nth 1 \
                   --prompt "$(tmux display-message -p '#S')> " \
-                  --preview "tmux display-message -p -t {1} '#{@pi_prompt}'" \
+                  --preview "tmux display-message -p -t {1} '#{?@review_context,#{@review_title} | #{@review_context} | run #{?@review_run,#{@review_run},pending} | #{?@review_state,#{@review_state},pending},#{@pi_prompt}}'" \
                   --preview-window 'down,3,wrap' \
               | cut -f1 \
               | xargs -r tmux select-window -t

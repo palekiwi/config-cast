@@ -230,6 +230,7 @@ def run-review [manifest: path, context: string, base: string, head: string, dir
     head: $head_sha
     diff: $diff_path
   }
+  tag-window { review_context: $context, review_run: $run_id }
   log $"run ($run_id): ($base_sha | str substring 0..9)...($head_sha | str substring 0..9) in ($st.address)"
 
   mut inputs = []
@@ -326,11 +327,23 @@ def "main pr" [
       if $code > $rc { $rc = $code }
     } else {
       let cmd = $"cue-review run --manifest ($manifest) --context ($slug) --base origin/($info.baseRefName) --head origin/($info.headRefName) -C ($repo); exec bash"
-      ^tmux new-window -t review -n $slug $cmd
-      print $"fired review window: ($slug)"
+      let win = (^tmux new-window -t review -n $"pr-($pr)" -P -F '#{window_id}' $cmd | str trim)
+      tag-window --target $win { review_pr: $"($pr)", review_context: $slug, review_title: $info.title }
+      print $"fired review window: pr-($pr) \(($slug)\)"
     }
   }
   exit $rc
+}
+
+# Set @<key> window options on a tmux window: the given target, else the
+# window running this process (no-op outside tmux). Links a window to its
+# review for the picker and `status`.
+def tag-window [opts: record, --target: string] {
+  let target = ($target | default ($env.TMUX_PANE? | default ""))
+  if ($target | is-empty) { return }
+  for kv in ($opts | transpose k v) {
+    do { ^tmux set -q -w -t $target $"@($kv.k)" $kv.v } | complete | ignore
+  }
 }
 
 # State of review windows in the review tmux session.
@@ -339,8 +352,8 @@ def "main status" [] {
     log "no review session"
     return
   }
-  ^tmux list-windows -t review -F "#{@review_state}#{?@review_state,,pending}\t#{window_name}\t#{window_active}"
-  | lines | each {|l| $l | split column "\t" state name active }
+  ^tmux list-windows -t review -F "#{@review_state}#{?@review_state,,pending}\t#{window_name}\t#{@review_context}\t#{@review_run}\t#{@review_title}"
+  | lines | each {|l| $l | split column "\t" state name context run title } | flatten
 }
 
 def print-summary [ctx: record, summary: list] {
