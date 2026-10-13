@@ -21,7 +21,8 @@ def die [msg: string, code: int = 2] {
 
 def main [] {
   print -e "usage: cue-review run --manifest <path> --context <slug> --base <ref> [--head <ref>] [-C <dir>]"
-  print -e "       cue-review pr <number-or-branch>... [--manifest <path>] [--detached] [-C <dir>]"
+  print -e "       cue-review pr <number-or-branch>... [--manifest <path>] [--foreground] [-C <dir>]"
+  print -e "       cue-review status"
   exit 2
 }
 
@@ -272,16 +273,20 @@ def "main run" [
 }
 
 # Review GitHub PRs by number or branch: check they exist, fetch refs,
-# ensure a review-<branch-slug> context per PR, then run the pipeline.
-# Foreground by default (summary on stdout); --detached opens a window in
-# the review tmux session instead.
+# ensure a review-<branch-slug> context per PR, then fire one window per
+# PR in the review tmux session (created if absent). Non-blocking; check
+# cue-review status later. --foreground runs in this shell instead.
 def "main pr" [
   ...prs: string     # PR numbers or branch names
   --manifest: string = ~/.config/cast/nix/cue-review/review-run.json  # Pipeline manifest
-  --detached         # Run in the review tmux session instead of foreground
+  --context: string  # Context slug; default review-<branch-slug>. Only with one PR
+  --foreground       # Run in this shell instead of the review tmux session
   -C: path           # Repository directory (default: current)
 ] {
   if ($prs | is-empty) { die "give at least one PR number or branch" }
+  if $context != null and ($prs | length) > 1 {
+    die "--context names one context; give it with a single PR only"
+  }
   let manifest = ($manifest | path expand)
   let dir = ($C | default $env.PWD | path expand)
   let top = (do { ^git -C $dir rev-parse --show-toplevel } | complete)
@@ -297,29 +302,44 @@ def "main pr" [
       continue
     }
     let info = ($view.stdout | from json)
-    let slug = ($info.headRefName | str lowercase
+    let slug = ($context | default ($info.headRefName | str lowercase
       | str replace -a '/' '-'
       | str replace -r '[^a-z0-9._-]' '-'
       | str trim -c '-'
-      | $"review-($in)")
+      | $"review-($in)"))
     if ((do { ^cue status -C $repo --context $slug } | complete).exit_code != 0) {
       ^cue context create $slug --title $"Review: ($info.title)" --mode review -C $repo
       log $"pr ($pr): created context ($slug)"
     }
     let fetch = (do { ^git -C $repo fetch origin $info.headRefName } | complete)
     if $fetch.exit_code != 0 { die $"pr ($pr): fetch failed: ($fetch.stderr | str trim)" }
+    if not $foreground {
+      if ((do { ^tmux has-session -t review } | complete).exit_code != 0) {
+        ^tmux new-session -d -s review
+      }
+    }
     log $"pr ($pr): ($info.title) [( $info.baseRefName )..( $info.headRefName )] as ($slug)"
-    if $detached {
-      if $env.TMUX? == null { die "--detached needs to run inside tmux" }
-      let cmd = $"cue-review run --manifest ($manifest) --context ($slug) --base origin/($info.baseRefName) --head origin/($info.headRefName) -C ($repo); exec bash"
-      ^tmux new-window -t review -n $slug $cmd
-    } else {
+    if $foreground {
       let code = (run-review $manifest $slug $"origin/($info.baseRefName)" $"origin/($info.headRefName)" $repo)
       if $code == 130 { exit 130 }
       if $code > $rc { $rc = $code }
+    } else {
+      let cmd = $"cue-review run --manifest ($manifest) --context ($slug) --base origin/($info.baseRefName) --head origin/($info.headRefName) -C ($repo); exec bash"
+      ^tmux new-window -t review -n $slug $cmd
+      print $"fired review window: ($slug)"
     }
   }
   exit $rc
+}
+
+# State of review windows in the review tmux session.
+def "main status" [] {
+  if ((do { ^tmux has-session -t review } | complete).exit_code != 0) {
+    log "no review session"
+    return
+  }
+  ^tmux list-windows -t review -F "#{@review_state}#{?@review_state,,pending}\t#{window_name}\t#{window_active}"
+  | lines | each {|l| $l | split column "\t" state name active }
 }
 
 def print-summary [ctx: record, summary: list] {
