@@ -463,12 +463,28 @@ def "main branch" [
   }
 }
 
+# The branch a commit belongs to: a local branch containing it (the current
+# branch wins ties), else a remote-tracking one. Reviews of commits and
+# ranges file into that branch's context so a body of work keeps one
+# context instead of fragmenting per-revision ones.
+def branch-of [repo: path, sha: string] {
+  let local = (do { ^git -C $repo branch --format '%(refname:short) %(HEAD)' --contains $sha } | complete
+    | get stdout | lines | each {|l| ($l | parse '{name} {head}' | first) })
+  let cur = ($local | where {|b| $b.head == '*' } | get -o name | default [] | first)
+  if $cur != null { return $cur }
+  let first_local = ($local | get -o name | default [] | first)
+  if $first_local != null { return $first_local }
+  let remote = (do { ^git -C $repo branch -r --format '%(refname:short)' --contains $sha } | complete
+    | get stdout | lines | where {|l| $l != 'origin/HEAD' } | each {|l| $l | str replace -r '^origin/' '' } | first)
+  $remote
+}
+
 # Review a single commit. Base is its first parent; merge commits review
 # against their first parent, root commits are rejected.
 def "main commit" [
   ...shas: string     # Commits (SHAs or anything rev-parse resolves)
   --manifest: string = $DEFAULT_MANIFEST
-  --context: string   # Context slug; default review-c-<sha10>. Single target only
+  --context: string   # Context slug; default review-<branch-slug> of the branch containing the commit. Single target only
   --foreground        # Run in this shell instead of the review tmux session
   --force             # Fire even if a window for the context is already running
   -C: path            # Repository directory (default: current)
@@ -484,12 +500,14 @@ def "main commit" [
     if $parent.exit_code != 0 { die $"commit ($sha | str substring 0..9) has no parent (root commit?); use range <empty-tree>..<sha> instead" }
     let base_sha = ($parent.stdout | str trim)
     let s10 = ($head_sha | str substring 0..9)
+    let br = (branch-of $repo $head_sha)
+    if $br == null { die "commit ($s10) is on no branch; pass --context to name one" }
     dispatch $repo $manifest {
       kind: commit
       base_sha: $base_sha
       head_sha: $head_sha
       refs: $"($base_sha | str substring 0..9)..($s10)"
-      context: ($context | default $"review-c-($s10)")
+      context: ($context | default $"review-(slugify $br)")
       title: $"Review commit ($s10)"
       window: $"c-($head_sha | str substring 0..6)"
     } --foreground=$foreground --force=$force
@@ -501,7 +519,7 @@ def "main commit" [
 def "main range" [
   ...ranges: string   # Ranges as <base>..<head>
   --manifest: string = $DEFAULT_MANIFEST
-  --context: string   # Context slug; default review-r-<base10>-<head10>. Single target only
+  --context: string   # Context slug; default review-<branch-slug> of the branch containing the head. Single target only
   --foreground        # Run in this shell instead of the review tmux session
   --force             # Fire even if a window for the context is already running
   -C: path            # Repository directory (default: current)
@@ -521,12 +539,14 @@ def "main range" [
     let head_sha = (rev-parse $repo $parts.1)
     let b10 = ($base_sha | str substring 0..9)
     let h10 = ($head_sha | str substring 0..9)
+    let br = (branch-of $repo $head_sha)
+    if $br == null { die "head ($h10) is on no branch; pass --context to name one" }
     dispatch $repo $manifest {
       kind: range
       base_sha: $base_sha
       head_sha: $head_sha
       refs: $"($b10)..($h10)"
-      context: ($context | default $"review-r-($b10)-($h10)")
+      context: ($context | default $"review-(slugify $br)")
       title: $"Review range ($b10)..($h10)"
       window: $"r-($head_sha | str substring 0..6)"
     } --foreground=$foreground --force=$force
