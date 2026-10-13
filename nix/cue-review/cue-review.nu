@@ -21,6 +21,7 @@ def die [msg: string, code: int = 2] {
 
 def main [] {
   print -e "usage: cue-review run --manifest <path> --context <slug> --base <ref> [--head <ref>] [-C <dir>]"
+  print -e "       cue-review pr <number-or-branch>... [--manifest <path>] [--detached] [-C <dir>]"
   exit 2
 }
 
@@ -186,18 +187,7 @@ def run-phase [ctx: record, phase: string, entries: list, inputs: list<string>] 
 }
 
 # Run a multi-agent review of <base>...<head>.
-def "main run" [
-  --manifest: path   # Pipeline manifest (JSON)
-  --context: string  # Existing cue context slug in the repo's scope
-  --base: string     # Base ref; the diff is <base>...<head>
-  --head: string = "HEAD"  # Head ref to review
-  -C: path           # Repository directory (default: current)
-] {
-  if $manifest == null { die "--manifest is required" }
-  if $context == null { die "--context is required" }
-  if $base == null { die "--base is required" }
-  let dir = ($C | default $env.PWD | path expand)
-
+def run-review [manifest: path, context: string, base: string, head: string, dir: path] {
   let top = (do { ^git -C $dir rev-parse --show-toplevel } | complete)
   if $top.exit_code != 0 { die $"not a git repository: ($dir)" }
   let repo = ($top.stdout | str trim)
@@ -214,7 +204,7 @@ def "main run" [
   if $diff.exit_code != 0 { die $"git diff failed: ($diff.stderr | str trim)" }
   if ($diff.stdout | str trim | is-empty) {
     log $"nothing to review: ($base)...($head) is empty"
-    exit 0
+    return 0
   }
   let dirty = (^git -C $repo status --porcelain | str trim)
   if ($dirty | is-not-empty) {
@@ -253,18 +243,83 @@ def "main run" [
     if $r.interrupted {
       log $"interrupted during ($phase); not starting further phases"
       print-summary $ctx $summary
-      exit 130
+      return 130
     }
     if ($r.produced | is-empty) {
       log $"phase ($phase) produced no artifacts; stopping"
       print-summary $ctx $summary
-      exit 1
+      return 1
     }
     $inputs = ($inputs ++ $r.produced)
   }
 
   print-summary $ctx $summary
-  exit (if $missing > 0 { 1 } else { 0 })
+  return (if $missing > 0 { 1 } else { 0 })
+}
+
+# Run a multi-agent review of <base>...<head>.
+def "main run" [
+  --manifest: path   # Pipeline manifest (JSON)
+  --context: string  # Existing cue context slug in the repo's scope
+  --base: string     # Base ref; the diff is <base>...<head>
+  --head: string = "HEAD"  # Head ref to review
+  -C: path           # Repository directory (default: current)
+] {
+  if $manifest == null { die "--manifest is required" }
+  if $context == null { die "--context is required" }
+  if $base == null { die "--base is required" }
+  exit (run-review $manifest $context $base $head ($C | default $env.PWD | path expand))
+}
+
+# Review GitHub PRs by number or branch: check they exist, fetch refs,
+# ensure a review-<branch-slug> context per PR, then run the pipeline.
+# Foreground by default (summary on stdout); --detached opens a window in
+# the review tmux session instead.
+def "main pr" [
+  ...prs: string     # PR numbers or branch names
+  --manifest: string = ~/.config/cast/nix/cue-review/review-run.json  # Pipeline manifest
+  --detached         # Run in the review tmux session instead of foreground
+  -C: path           # Repository directory (default: current)
+] {
+  if ($prs | is-empty) { die "give at least one PR number or branch" }
+  let manifest = ($manifest | path expand)
+  let dir = ($C | default $env.PWD | path expand)
+  let top = (do { ^git -C $dir rev-parse --show-toplevel } | complete)
+  if $top.exit_code != 0 { die $"not a git repository: ($dir)" }
+  let repo = ($top.stdout | str trim)
+
+  mut rc = 0
+  for pr in $prs {
+    let view = (do { ^gh pr view $pr -R $repo --json headRefName,baseRefName,title } | complete)
+    if $view.exit_code != 0 {
+      log $"pr ($pr): not found or not accessible"
+      $rc = 1
+      continue
+    }
+    let info = ($view.stdout | from json)
+    let slug = ($info.headRefName | str lowercase
+      | str replace -a '/' '-'
+      | str replace -r '[^a-z0-9._-]' '-'
+      | str trim -c '-'
+      | $"review-($in)")
+    if ((do { ^cue status -C $repo --context $slug } | complete).exit_code != 0) {
+      ^cue context create $slug --title $"Review: ($info.title)" --mode review -C $repo
+      log $"pr ($pr): created context ($slug)"
+    }
+    let fetch = (do { ^git -C $repo fetch origin $info.headRefName } | complete)
+    if $fetch.exit_code != 0 { die $"pr ($pr): fetch failed: ($fetch.stderr | str trim)" }
+    log $"pr ($pr): ($info.title) [( $info.baseRefName )..( $info.headRefName )] as ($slug)"
+    if $detached {
+      if $env.TMUX? == null { die "--detached needs to run inside tmux" }
+      let cmd = $"cue-review run --manifest ($manifest) --context ($slug) --base origin/($info.baseRefName) --head origin/($info.headRefName) -C ($repo); exec bash"
+      ^tmux new-window -t review -n $slug $cmd
+    } else {
+      let code = (run-review $manifest $slug $"origin/($info.baseRefName)" $"origin/($info.headRefName)" $repo)
+      if $code == 130 { exit 130 }
+      if $code > $rc { $rc = $code }
+    }
+  }
+  exit $rc
 }
 
 def print-summary [ctx: record, summary: list] {
