@@ -18,7 +18,30 @@
 const PHASES = [reviewers merge verifiers]
 const ENTRY_FIELDS = [name agent prompt model thinking system_prompt]
 const MAX_ENTRIES = 4
-const DEFAULT_MANIFEST = "~/.config/cast/nix/cue-review/review-run.json"
+const DEFAULT_MANIFEST = "review-run"
+
+# Manifests are global only: <config>/cue/review/<name>.json, prompts
+# referenced relative to it. Project-specific manifests are name-prefixed
+# (e.g. spabreaks-review-run). A value containing "/" or ending in ".json"
+# is taken as a path instead of a name.
+def manifest-dir [] {
+  let xdg = ($env.XDG_CONFIG_HOME? | default "")
+  let base = if $xdg == "" { $env.HOME | path join ".config" } else { $xdg }
+  $base | path join cue review
+}
+
+def resolve-manifest [value: string] {
+  if ($value | str contains "/") or ($value | str ends-with ".json") {
+    return ($value | path expand)
+  }
+  if ($value !~ '^[a-z0-9][a-z0-9-]*$') { die $"manifest name must match [a-z0-9-]+: ($value)" }
+  let p = (manifest-dir | path join $"($value).json")
+  if not ($p | path exists) {
+    let known = (try { ls (manifest-dir) | where name =~ '\.json$' | get name | path parse | get stem | str join ", " } catch { "" })
+    die $"no manifest named '($value)' in (manifest-dir) \(known: ($known)\)"
+  }
+  $p
+}
 
 def log [msg: string] { print -e $"cue-review: ($msg)" }
 
@@ -386,7 +409,7 @@ def check-single-context [context: any, n: int] {
 # resolved to SHAs here, before anything detaches.
 def "main pr" [
   ...prs: string     # PR numbers or branch names
-  --manifest: string = $DEFAULT_MANIFEST  # Pipeline manifest
+  --manifest: string = $DEFAULT_MANIFEST  # Manifest name (or path)
   --context: string  # Context slug; default review-<branch-slug>. Single PR only
   --foreground       # Run in this shell instead of the review tmux session
   --force            # Fire even if a window for the context is already running
@@ -394,7 +417,7 @@ def "main pr" [
 ] {
   if ($prs | is-empty) { die "give at least one PR number or branch" }
   check-single-context $context ($prs | length)
-  let manifest = ($manifest | path expand)
+  let manifest = (resolve-manifest $manifest)
   let repo = (repo-of ($C | default $env.PWD | path expand))
 
   mut rc = 0
@@ -443,7 +466,7 @@ def "main branch" [
     [($cur.stdout | str trim)]
   } else { $names }
   check-single-context $context ($branches | length)
-  let manifest = ($manifest | path expand)
+  let manifest = (resolve-manifest $manifest)
   let repo = (repo-of ($C | default $env.PWD | path expand))
   let integ = (integration-ref $repo $base)
 
@@ -491,7 +514,7 @@ def "main commit" [
 ] {
   if ($shas | is-empty) { die "give at least one commit" }
   check-single-context $context ($shas | length)
-  let manifest = ($manifest | path expand)
+  let manifest = (resolve-manifest $manifest)
   let repo = (repo-of ($C | default $env.PWD | path expand))
 
   for sha in $shas {
@@ -526,7 +549,7 @@ def "main range" [
 ] {
   if ($ranges | is-empty) { die "give at least one range as <base>..<head>" }
   check-single-context $context ($ranges | length)
-  let manifest = ($manifest | path expand)
+  let manifest = (resolve-manifest $manifest)
   let repo = (repo-of ($C | default $env.PWD | path expand))
 
   for r in $ranges {
@@ -556,7 +579,7 @@ def "main range" [
 # Compat alias: blocking engine call with merge-base semantics, matching the
 # historical three-dot behaviour. Prefer the target subcommands.
 def "main run" [
-  --manifest: path   # Pipeline manifest (JSON)
+  --manifest: string  # Manifest name (or path)
   --context: string  # Existing cue context slug in the repo's scope
   --base: string     # Base ref; the diff is merge-base(<base>,<head>)..<head>
   --head: string = "HEAD"  # Head ref to review
@@ -568,7 +591,7 @@ def "main run" [
   let repo = (repo-of ($C | default $env.PWD | path expand))
   let head_sha = (rev-parse $repo $head)
   let base_sha = (merge-base-of $repo $base $head_sha)
-  exit (run-review ($manifest | path expand) $context $base_sha $head_sha $repo { kind: run })
+  exit (run-review (resolve-manifest $manifest) $context $base_sha $head_sha $repo { kind: run })
 }
 
 # State of review windows in the review tmux session.
