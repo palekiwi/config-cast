@@ -18,11 +18,11 @@
 const PHASES = [reviewers merge verifiers]
 const ENTRY_FIELDS = [name agent prompt model thinking system_prompt]
 const MAX_ENTRIES = 4
-const DEFAULT_MANIFEST = "review-run"
+const DEFAULT_MANIFEST = "default"
 
 # Manifests are global only: <config>/cue/review/<name>.json, prompts
 # referenced relative to it. Project-specific manifests are name-prefixed
-# (e.g. spabreaks-review-run). A value containing "/" or ending in ".json"
+# (e.g. spabreaks-default). A value containing "/" or ending in ".json"
 # is taken as a path instead of a name.
 def manifest-dir [] {
   let xdg = ($env.XDG_CONFIG_HOME? | default "")
