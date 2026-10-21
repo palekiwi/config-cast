@@ -90,7 +90,7 @@ def load-manifest [file: path] {
       die $"manifest: ($phase) must be a list"
     }
     let n = ($entries | length)
-    if $phase != "merge" and $n == 0 { die $"manifest: ($phase) needs at least one entry" }
+    if $phase == "reviewers" and $n == 0 { die $"manifest: ($phase) needs at least one entry" }
     if $n > $MAX_ENTRIES { die $"manifest: ($phase) has ($n) entries, max ($MAX_ENTRIES)" }
 
     let resolved = ($entries | enumerate | each {|it|
