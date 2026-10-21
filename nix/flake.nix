@@ -132,6 +132,7 @@
           gh
           go-task
           jq
+          nushell
           python3
           ripgrep
           tree
