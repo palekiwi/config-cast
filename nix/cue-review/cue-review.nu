@@ -202,6 +202,7 @@ def input-block [ctx: record, phase: string, name: string, inputs: list<string>]
     $"base: ($ctx.base)"
     $"head: ($ctx.head)"
     $"diff: ($ctx.diff)"
+    $"run_record: ([$ctx.store $ctx.address review $ctx.run_id run.json] | path join)"
     ...$input_lines
     "output:"
     "  tool: cue-review"
@@ -215,7 +216,78 @@ def artifact-path [ctx: record, phase: string, name: string] {
   [$ctx.store $ctx.address review $ctx.run_id $"($phase)-($name).json"] | path join
 }
 
-# Run one phase through cue-agent. Returns { produced: [paths], missing: int, interrupted: bool }.
+# Keep receipt metrics, not response text or container-local logs. `model`
+# is configuration-first in cue-agent; it is not an observed-model guarantee.
+def entry-receipt [run: any] {
+  if $run == null { return null }
+  $run | select -o run_id batch_id agent model outcome exit_code signal duration_ms turns tokens_input tokens_output cost_usd error events_malformed events_oversized events_truncated persistence_errors cleanup_errors
+}
+
+# Observe requests, not successful reads or comprehension. Never retain raw
+# arguments, command strings, search patterns or response text in the summary.
+def observed-activity [run: any] {
+  let run_path = ($run | get -o run_path)
+  if $run_path == null { return { status: "unavailable", models: [], requests: [] } }
+  let path = ($run_path | path join events.jsonl)
+  let lines = try { open --raw $path | lines | first 10001 } catch {
+    return { status: "unavailable", models: [], requests: [] }
+  }
+  mut models = []
+  mut requests = []
+  mut requests_limited = false
+  mut malformed = 0
+  for line in ($lines | first 10000) {
+    let event = try { $line | from json } catch { null }
+    if not ($event | describe | str starts-with "record") {
+      $malformed = $malformed + 1
+      continue
+    }
+    if $event.type? == "message_end" and (try { $event.message.role? } catch { null }) == "assistant" {
+      let model = $event.message.model?
+      if $model != null {
+        $models = ($models | append { provider: $event.message.provider?, model: $model } | uniq)
+      }
+    }
+    if $event.type? == "tool_execution_start" {
+      let tool = $event.toolName?
+      if $tool in [read grep find ls] {
+        let path = try { $event.args.path? } catch { null }
+        if ($path | describe) == "string" {
+          let request = { tool: $tool, path: $path }
+          if $request not-in $requests {
+            if ($requests | length) < 500 {
+              $requests = ($requests | append $request)
+            } else { $requests_limited = true }
+          }
+        }
+      }
+    }
+  }
+  {
+    status: "available"
+    models: $models
+    requests: $requests
+    malformed_lines: $malformed
+    events_limited: (($lines | length) > 10000)
+    requests_limited: $requests_limited
+    stream_truncated: ($run | get -o events_truncated)
+  }
+}
+
+# Only this runner-owned summary is mutable. Agent artifacts remain write-once.
+# Rename from the same directory so readers never observe partially written JSON.
+def save-run-record [path: path, record: record] {
+  let tmp = (^mktemp $"($path).XXXXXX" | str trim)
+  try {
+    $record | to json | save -f $tmp
+    mv -f $tmp $path
+  } catch {|err|
+    rm -f $tmp
+    error make { msg: $"cannot persist run summary: ($err.msg)" }
+  }
+}
+
+# Run one phase through cue-agent, returning artifacts and durable entry data.
 def run-phase [ctx: record, phase: string, entries: list, inputs: list<string>] {
   let tasks = ($entries | each {|e|
     let prompt = $"($e.prompt | str trim --right)\n\n(input-block $ctx $phase $e.name $inputs)\n"
@@ -253,17 +325,24 @@ def run-phase [ctx: record, phase: string, entries: list, inputs: list<string>] 
   } catch {|err| $env.LAST_EXIT_CODE? | default 1 }
   rm -f $spec_file
 
-  let receipt = try { open --raw $receipt_file | from json } catch { null }
+  let parsed = try { open --raw $receipt_file | from json } catch { null }
+  let receipt = if ($parsed | describe | str starts-with "record") {
+    let runs = ($parsed | get -o runs)
+    if ($runs | describe | str starts-with "list") or ($runs | describe | str starts-with "table") {
+      $parsed
+    } else { null }
+  } else { null }
   rm -f $receipt_file
   if $receipt == null {
-    if $code == 2 { die $"phase ($phase): cue-agent rejected the run specification" }
-    # No receipt: most likely interrupted before cue-agent finished.
-    return { produced: [], missing: ($entries | length), interrupted: true }
+    log $"phase ($phase): no readable cue-agent receipt \(exit ($code)\)"
+    # Missing receipts are not evidence of interruption. Still preserve any
+    # artifacts produced before the supervisor failed.
   }
 
-  let runs = $receipt.runs
+  let runs = ($receipt | get -o runs | default [])
   let results = ($entries | enumerate | each {|it|
-    let run = ($runs | get -o $it.index)
+    let candidate = ($runs | get -o $it.index)
+    let run = if ($candidate | describe | str starts-with "record") { $candidate } else { null }
     let path = (artifact-path $ctx $phase $it.item.name)
     let ok = ($path | path exists)
     let outcome = ($run | get -o outcome | default "unknown")
@@ -275,13 +354,40 @@ def run-phase [ctx: record, phase: string, entries: list, inputs: list<string>] 
     if (not $ok) and $err != null { $line = $"($line) -- ($err)" }
     log $line
     for c in ($run | get -o cleanup_errors | default []) { log $"  cleanup: ($c)" }
-    { ok: $ok, path: $path, outcome: $outcome }
+    {
+      ok: $ok, path: $path, outcome: $outcome
+      entry: {
+        name: $it.item.name
+        agent: $it.item.agent
+        requested_model: $it.item.model
+        inputs: $inputs
+        artifact: $path
+        artifact_present: $ok
+        receipt_status: (if $run == null { "missing" } else { "available" })
+        receipt: (entry-receipt $run)
+        observed: (observed-activity $run)
+      }
+    }
   })
   let produced = ($results | where ok | get path)
   let interrupted = ($results | any {|r| $r.outcome == "aborted" })
   let elapsed = ((date now) - $start | format duration sec | str replace -r '\.\d+' '')
   log $"phase ($phase): ($produced | length)/($entries | length) artifacts in ($elapsed)"
-  { produced: $produced, missing: (($entries | length) - ($produced | length)), interrupted: $interrupted }
+  {
+    produced: $produced
+    missing: (($entries | length) - ($produced | length))
+    interrupted: ($interrupted or $code == 130)
+    receipt_missing: ($results | any {|r| $r.entry.receipt_status == "missing" })
+    provenance: {
+      phase: $phase
+      state: "finished"
+      supervisor_exit_code: $code
+      batch_id: ($receipt | get -o batch_id)
+      harness: ($receipt | get -o harness)
+      harness_version: ($receipt | get -o harness_version)
+      entries: ($results | get entry)
+    }
+  }
 }
 
 # The engine. base and head are resolved SHAs; the diff is exactly
@@ -320,17 +426,25 @@ def run-review [
   # Lineage record: what was fired, what it resolved to. Never trust older
   # runs' findings just because the context matches.
   let record_file = (mktemp -t cue-review-run.XXXXXX.json)
-  {
+  mut record = {
+    schema_version: 1
+    state: "running"
+    manifest: { name: ($manifest | path parse | get stem), path: ($manifest | path expand) }
+    phases: ($PHASES | each {|phase|
+      { phase: $phase, state: "pending", entries: [] }
+    })
     target: $target
     base: $base_sha
     head: $head_sha
     context: $st.address
     run_id: $run_id
     diff: $diff_path
-  } | to json | save -f $record_file
+  }
+  $record | to json | save -f $record_file
   let rec = (do { ^cue add -C $repo --type review --context $context --file $record_file $"($run_id)/run.json" } | complete)
   rm -f $record_file
-  if $rec.exit_code != 0 { log $"warning: run record failed: ($rec.stderr | str trim)" }
+  if $rec.exit_code != 0 { die $"run record failed: ($rec.stderr | str trim)" 1 }
+  let record_path = ([$st.store $st.address review $run_id run.json] | path join)
 
   let ctx = {
     slug: $context
@@ -348,10 +462,27 @@ def run-review [
   mut inputs = []
   mut summary = []
   mut missing = 0
+  mut receipt_missing = false
   for phase in $PHASES {
     let entries = ($m | get $phase)
-    if ($entries | is-empty) { continue }
+    if ($entries | is-empty) {
+      $record.phases = ($record.phases | each {|p|
+        if $p.phase == $phase { $p | update state "skipped" } else { $p }
+      })
+      continue
+    }
     let r = (run-phase $ctx $phase $entries $inputs)
+    $receipt_missing = ($receipt_missing or $r.receipt_missing)
+    $record.phases = ($record.phases | each {|p|
+      if $p.phase == $phase { $r.provenance } else { $p }
+    })
+    $record.state = (if $r.interrupted { "aborted" } else if ($r.produced | is-empty) { "failed" } else { "running" })
+    if $record.state != "running" {
+      $record.phases = ($record.phases | each {|p|
+        if $p.state == "pending" { $p | update state "skipped" } else { $p }
+      })
+    }
+    save-run-record $record_path $record
     $summary = ($summary | append { phase: $phase, produced: $r.produced })
     $missing = $missing + $r.missing
     if $r.interrupted {
@@ -367,8 +498,10 @@ def run-review [
     $inputs = ($inputs ++ $r.produced)
   }
 
+  $record.state = (if $missing > 0 or $receipt_missing { "incomplete" } else { "completed" })
+  save-run-record $record_path $record
   print-summary $ctx $summary
-  return (if $missing > 0 { 1 } else { 0 })
+  return (if $missing > 0 or $receipt_missing { 1 } else { 0 })
 }
 
 # Take a fully normalized target and either run it here (--foreground) or
