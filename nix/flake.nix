@@ -80,14 +80,14 @@
                   }
                   rv = ($8 != "") ? sprintf("  \033[2m%s\033[0m", $8) : "";
                   # Session description from the pi /describe command,
-                  # dimmed after the window name when present.
+                  # dimmed right after the window name when present.
                   dv = ($9 != "") ? sprintf("  \033[2m%s\033[0m", substr($9, 1, 60)) : "";
-                  printf "%s\t%s %s%s\033[0m%s%s%s\n", $1, mark, c, $6, pct, dv, rv;
+                  printf "%s\t%s %s%s\033[0m%s%s%s\n", $1, mark, c, $6, dv, pct, rv;
                 }' \
               | fzf --ansi --reverse --no-sort --delimiter '\t' \
                   --with-nth 2 --nth 1 \
                   --prompt "$(tmux display-message -p '#S')> " \
-                  --preview "tmux display-message -p -t {1} '#{?@review_context,#{@review_title} | #{@review_context} | run #{?@review_run,#{@review_run},pending} | #{?@review_state,#{@review_state},pending},#{@pi_desc} — #{@pi_prompt}}'" \
+                  --preview "tmux display-message -p -t {1} '#{?@review_context,#{@review_title} | #{@review_context} | run #{?@review_run,#{@review_run},pending} | #{?@review_state,#{@review_state},pending},#{@pi_desc}}'" \
                   --preview-window 'down,3,wrap' \
               | cut -f1 \
               | xargs -r tmux select-window -t
