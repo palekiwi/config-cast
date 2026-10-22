@@ -53,7 +53,7 @@
           text = ''
             # Rows: id, coloured label (hidden id field used for preview).
             tmux list-windows -F \
-              '#{window_id}	#{@pi_state}	#{@pi_unseen}	#{window_active}	#{@pi_ctx}	#W	#{@review_state}	#{@review_context}' \
+              '#{window_id}	#{@pi_state}	#{@pi_unseen}	#{window_active}	#{@pi_ctx}	#W	#{@review_state}	#{@review_context}	#{@pi_desc}' \
               | awk -F '\t' '{
                   c = "";
                   if ($7 == "failed") c = "\033[31m";
@@ -79,12 +79,15 @@
                     pct = sprintf("  %s%s\033[0m", pc, t);
                   }
                   rv = ($8 != "") ? sprintf("  \033[2m%s\033[0m", $8) : "";
-                  printf "%s\t%s %s%s\033[0m%s%s\n", $1, mark, c, $6, pct, rv;
+                  # Session description from the pi /describe command,
+                  # dimmed after the window name when present.
+                  dv = ($9 != "") ? sprintf("  \033[2m%s\033[0m", substr($9, 1, 60)) : "";
+                  printf "%s\t%s %s%s\033[0m%s%s%s\n", $1, mark, c, $6, pct, dv, rv;
                 }' \
               | fzf --ansi --reverse --no-sort --delimiter '\t' \
                   --with-nth 2 --nth 1 \
                   --prompt "$(tmux display-message -p '#S')> " \
-                  --preview "tmux display-message -p -t {1} '#{?@review_context,#{@review_title} | #{@review_context} | run #{?@review_run,#{@review_run},pending} | #{?@review_state,#{@review_state},pending},#{@pi_prompt}}'" \
+                  --preview "tmux display-message -p -t {1} '#{?@review_context,#{@review_title} | #{@review_context} | run #{?@review_run,#{@review_run},pending} | #{?@review_state,#{@review_state},pending},#{@pi_desc} — #{@pi_prompt}}'" \
                   --preview-window 'down,3,wrap' \
               | cut -f1 \
               | xargs -r tmux select-window -t
@@ -123,6 +126,29 @@
           '';
         };
 
+        # Headless browser CLI for agents (vercel-labs/agent-browser),
+        # bundles its own Chromium. Defaults make it work in the sandbox:
+        # - fontconfig: without it Chromium aborts on first render;
+        # - host-resolver MAP: localhost resolves to the docker host, so
+        #   http://localhost:<port> reaches host-published app ports while
+        #   the Host header stays "localhost" (passes Rails/Vite host
+        #   checks, and hard-coded http://localhost:8080 Vite assets load);
+        # - /dev/shm is 64M in the sandbox.
+        # Both are --set-default, so callers can override them.
+        agentBrowser = pkgs.symlinkJoin {
+          name = "agent-browser";
+          paths = [ agents.agent-browser ];
+          nativeBuildInputs = [ pkgs.makeWrapper ];
+          postBuild = ''
+            wrapProgram $out/bin/agent-browser \
+              --set-default FONTCONFIG_FILE ${pkgs.makeFontsConf {
+                fontDirectories = [ pkgs.dejavu_fonts pkgs.liberation_ttf ];
+              }} \
+              --set-default AGENT_BROWSER_ARGS \
+                "--host-resolver-rules=MAP localhost host.docker.internal,--disable-dev-shm-usage"
+          '';
+        };
+
         # Shared tooling available in every cast shell.
         commonInputs = (with pkgs; [
           ast-grep
@@ -139,6 +165,7 @@
           tree-sitter
         ]) ++ [
           castTmux
+          agentBrowser
           tmuxWindowPicker
           cueReview
           inputs.cue.packages.${system}.cue
