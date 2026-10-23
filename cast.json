@@ -6,6 +6,7 @@
     "CONTEXT7_API_KEY",
     "GEMINI_API_KEY",
     "GH_TOKEN_READONLY",
+    "JIRA_TOKEN_READONLY",
     "GOOGLE_GENERATIVE_AI_API_KEY",
     "OPENCODE_API_KEY",
     "OPENCODE_CONFIG_DIR",
@@ -34,6 +35,12 @@
     "config-cue": {
       "source": "~/.config/cue/",
       "target": "~/.config/cue/",
+      "type": "bind",
+      "mode": "rw"
+    },
+    "cue-platform": {
+      "source": "~/code/palekiwi-labs/cue-platform/",
+      "target": "~/code/palekiwi-labs/cue-platform/",
       "type": "bind",
       "mode": "rw"
     },
