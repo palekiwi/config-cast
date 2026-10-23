@@ -93,14 +93,17 @@
         ]
       },
       "locked": {
-        "lastModified": 1792754621,
-        "narHash": "sha256-myU/Luj+to2k53ly1IReqKwf7BixTshfeUCkzmmHOrQ=",
-        "path": "/home/pl/code/palekiwi-labs/cue-platform",
-        "type": "path"
+        "lastModified": 1792759743,
+        "narHash": "sha256-qtLAZPfYU/CBec5tDlA0yjlEro3GwrxpqECa0zyPD2s=",
+        "ref": "refs/heads/master",
+        "rev": "c74c10f707c9fe9a62059d506ad7ca81feb3c4d3",
+        "revCount": 5,
+        "type": "git",
+        "url": "file:///home/pl/code/palekiwi-labs/cue-platform"
       },
       "original": {
-        "path": "/home/pl/code/palekiwi-labs/cue-platform",
-        "type": "path"
+        "type": "git",
+        "url": "file:///home/pl/code/palekiwi-labs/cue-platform"
       }
     },
     "fenix": {
