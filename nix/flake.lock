@@ -43,20 +43,21 @@
         "fenix": "fenix",
         "flake-utils": "flake-utils",
         "nixpkgs": [
+          "cue-platform",
           "nixpkgs"
         ]
       },
       "locked": {
-        "lastModified": 1791531702,
-        "narHash": "sha256-75RX2fm2zD2SoqSa5zit9uPutzKywZxVpZXAKFs6pLM=",
+        "lastModified": 1792577042,
+        "narHash": "sha256-5R/7yTDlv6jOQS+gHfuq/CvMnFxk2g3HncAwyIzXp/Q=",
         "owner": "palekiwi-labs",
         "repo": "cast",
-        "rev": "cb76d94ab17d7b7f7cbafcf10eb14295945727fb",
+        "rev": "f637d407d398abaf022674006b7c192ff941c02b",
         "type": "github"
       },
       "original": {
         "owner": "palekiwi-labs",
-        "ref": "v0.2.0-rc.2",
+        "ref": "spike/herdr-service-pivot",
         "repo": "cast",
         "type": "github"
       }
@@ -66,6 +67,7 @@
         "fenix": "fenix_2",
         "flake-utils": "flake-utils_2",
         "nixpkgs": [
+          "cue-platform",
           "nixpkgs"
         ]
       },
@@ -86,18 +88,21 @@
     },
     "cue-platform": {
       "inputs": {
+        "cast": "cast",
+        "cue": "cue",
         "flake-utils": "flake-utils_3",
         "llm-agents": "llm-agents",
         "nixpkgs": [
           "nixpkgs"
-        ]
+        ],
+        "nvf": "nvf"
       },
       "locked": {
-        "lastModified": 1792759743,
-        "narHash": "sha256-qtLAZPfYU/CBec5tDlA0yjlEro3GwrxpqECa0zyPD2s=",
+        "lastModified": 1792765014,
+        "narHash": "sha256-eyEjJDjaqTpZpVXDCNU8AZFpGQMPCeFVgxjfmtQk5qQ=",
         "ref": "refs/heads/master",
-        "rev": "c74c10f707c9fe9a62059d506ad7ca81feb3c4d3",
-        "revCount": 5,
+        "rev": "b5d51b823467d426be9da54b2ddb49f9c328eab9",
+        "revCount": 14,
         "type": "git",
         "url": "file:///home/pl/code/palekiwi-labs/cue-platform"
       },
@@ -109,6 +114,7 @@
     "fenix": {
       "inputs": {
         "nixpkgs": [
+          "cue-platform",
           "cast",
           "nixpkgs"
         ],
@@ -131,6 +137,7 @@
     "fenix_2": {
       "inputs": {
         "nixpkgs": [
+          "cue-platform",
           "cue",
           "nixpkgs"
         ],
@@ -341,6 +348,19 @@
     },
     "nixpkgs": {
       "locked": {
+        "lastModified": 1790046670,
+        "narHash": "sha256-OJe62m8gZx4xEAQnMcqH1u31/uu4Xf0q2ykAEHZfgrg=",
+        "rev": "6774f7bc253789b113a4f39285dc0fa100abeacc",
+        "type": "tarball",
+        "url": "https://releases.nixos.org/nixos/unstable/nixos-26.11pre1077996.6774f7bc2537/nixexprs.tar.xz"
+      },
+      "original": {
+        "type": "tarball",
+        "url": "https://channels.nixos.org/nixos-unstable/nixexprs.tar.xz"
+      }
+    },
+    "nixpkgs_2": {
+      "locked": {
         "lastModified": 1792506237,
         "narHash": "sha256-Q/8KLB6jNfpaUN1HAedE/u/Et9feE/zYSsutBLKrCFk=",
         "owner": "NixOS",
@@ -355,24 +375,11 @@
         "type": "github"
       }
     },
-    "nixpkgs_2": {
-      "locked": {
-        "lastModified": 1790046670,
-        "narHash": "sha256-OJe62m8gZx4xEAQnMcqH1u31/uu4Xf0q2ykAEHZfgrg=",
-        "rev": "6774f7bc253789b113a4f39285dc0fa100abeacc",
-        "type": "tarball",
-        "url": "https://releases.nixos.org/nixos/unstable/nixos-26.11pre1077996.6774f7bc2537/nixexprs.tar.xz"
-      },
-      "original": {
-        "type": "tarball",
-        "url": "https://channels.nixos.org/nixos-unstable/nixexprs.tar.xz"
-      }
-    },
     "nvf": {
       "inputs": {
         "flake-compat": "flake-compat",
         "mnw": "mnw",
-        "nixpkgs": "nixpkgs_2"
+        "nixpkgs": "nixpkgs"
       },
       "locked": {
         "lastModified": 1792450766,
@@ -390,8 +397,6 @@
     },
     "root": {
       "inputs": {
-        "cast": "cast",
-        "cue": "cue",
         "cue-platform": "cue-platform",
         "flake-utils": "flake-utils_4",
         "git-pr-sync": "git-pr-sync",
@@ -399,8 +404,7 @@
           "cue-platform",
           "llm-agents"
         ],
-        "nixpkgs": "nixpkgs",
-        "nvf": "nvf"
+        "nixpkgs": "nixpkgs_2"
       }
     },
     "rust-analyzer-src": {
