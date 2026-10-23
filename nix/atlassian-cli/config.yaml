@@ -1,0 +1,10 @@
+# atlassian-cli profile for sandbox agents. No secrets: the read-only
+# scoped token comes from ATLASSIAN_CLI_TOKEN_SPABREAKS (see flake.nix).
+# Scoped tokens only work through the API gateway, so base_url is
+# https://api.atlassian.com/ex/jira/<cloudId>; the cloudId comes from
+# https://spabreaks.atlassian.net/_edge/tenant_info
+default_profile: spabreaks
+profiles:
+  spabreaks:
+    base_url: https://api.atlassian.com/ex/jira/f9c22791-6b2e-4605-b14a-74ca9f03a46a
+    email: pawel.lisewski@spabreaks.com

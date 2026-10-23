@@ -17,10 +17,11 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     nvf.url = "github:NotAShelf/nvf";
-    llm-agents = {
-      url = "github:numtide/llm-agents.nix";
+    cue-platform = {
+      url = "path:/home/pl/code/palekiwi-labs/cue-platform";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    llm-agents.follows = "cue-platform/llm-agents";
   };
 
   outputs = { nixpkgs, flake-utils, nvf, llm-agents, ... }@inputs:
@@ -179,6 +180,9 @@
           export TZDIR="${pkgs.tzdata}/share/zoneinfo";
 
           export GH_TOKEN=$GH_TOKEN_READONLY
+          export JIRA_TOKEN=$JIRA_TOKEN_READONLY
+          export ATLASSIAN_CLI_TOKEN_SPABREAKS=$JIRA_TOKEN_READONLY
+          export ATLASSIAN_CLI_CONFIG_DIR="$HOME/.config/cast/nix/atlassian-cli"
           export GEMINI_API_KEY=$GOOGLE_GENERATIVE_AI_API_KEY
           export ZAI_API_KEY=$ZAI_CODING_PLAN_API_KEY
 
@@ -196,7 +200,7 @@
             name = "cast-default";
             buildInputs = commonInputs ++ [
               agents.opencode
-              agents.pi
+              inputs.cue-platform.packages.${system}.pi
               agents.claude-code
             ];
             shellHook = commonShellHook;
