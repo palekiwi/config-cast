@@ -159,9 +159,11 @@ def slugify [name: string] {
 }
 
 # Create the review context if missing, then pin it (idempotent marker).
-def ensure-context [repo: path, slug: string, title: string] {
+def ensure-context [repo: path, slug: string, title: string, parent: any] {
   if ((do { ^cue status -C $repo --context $slug } | complete).exit_code != 0) {
-    ^cue context create $slug --title $title --mode review -C $repo
+    let args = if $parent == null { [] } else { [--parent $parent] }
+    let created = (do { ^cue context create $slug --title $title --mode review -C $repo ...$args } | complete)
+    if $created.exit_code != 0 { die $created.stderr }
     log $"created context ($slug)"
   }
   let pin = (do { ^cue context pin $slug -C $repo } | complete)
@@ -508,7 +510,7 @@ def run-review [
 # fire a review tmux window. Detached success means accepted, not reviewed.
 # t: { kind, base_sha, head_sha, refs, context, title, window, pr? }
 def dispatch [repo: path, manifest: path, t: record, --foreground, --force] {
-  ensure-context $repo $t.context $t.title
+  ensure-context $repo $t.context $t.title $t.parent
   if $foreground {
     exit (run-review $manifest $t.context $t.base_sha $t.head_sha $repo $t)
   }
@@ -538,18 +540,28 @@ def check-single-context [context: any, n: int] {
   }
 }
 
+def resolve-parent [parent: any, n: int, repo: path] {
+  if $parent == null { return null }
+  if $n > 1 { die "--parent requires a single target" }
+  let status = (do { ^cue status -C $repo --context $parent --json } | complete)
+  if $status.exit_code != 0 { die $status.stderr }
+  $status.stdout | from json | get address
+}
+
 # Review GitHub PRs by number or branch. gh resolves the PR; refs are
 # resolved to SHAs here, before anything detaches.
 def "main pr" [
   ...prs: string     # PR numbers or branch names
   --manifest: string = $DEFAULT_MANIFEST  # Manifest name (or path)
   --context: string  # Context slug; default review-<branch-slug>. Single PR only
+  --parent: string   # Parent canonical context address for a new context; single target only
   --foreground       # Run in this shell instead of the review tmux session
   --force            # Fire even if a window for the context is already running
   -C: path           # Repository directory (default: current)
 ] {
   if ($prs | is-empty) { die "give at least one PR number or branch" }
   check-single-context $context ($prs | length)
+  let resolved_parent = (resolve-parent $parent ($prs | length) ($C | default $env.PWD | path expand))
   let manifest = (resolve-manifest $manifest)
   let repo = (repo-of ($C | default $env.PWD | path expand))
 
@@ -569,6 +581,7 @@ def "main pr" [
     let base_sha = (merge-base-of $repo $"origin/($info.baseRefName)" $head_sha)
     dispatch $repo $manifest {
       kind: pr
+      parent: $resolved_parent
       pr: $pr
       base_sha: $base_sha
       head_sha: $head_sha
@@ -589,6 +602,7 @@ def "main branch" [
   --base: string      # Integration ref for the merge-base (default: origin/HEAD)
   --manifest: string = $DEFAULT_MANIFEST
   --context: string   # Context slug; default review-<branch-slug>. Single target only
+  --parent: string    # Parent canonical context address for a new context; single target only
   --foreground        # Run in this shell instead of the review tmux session
   --force             # Fire even if a window for the context is already running
   -C: path            # Repository directory (default: current)
@@ -599,6 +613,7 @@ def "main branch" [
     [($cur.stdout | str trim)]
   } else { $names }
   check-single-context $context ($branches | length)
+  let resolved_parent = (resolve-parent $parent ($branches | length) ($C | default $env.PWD | path expand))
   let manifest = (resolve-manifest $manifest)
   let repo = (repo-of ($C | default $env.PWD | path expand))
   let integ = (integration-ref $repo $base)
@@ -609,6 +624,7 @@ def "main branch" [
     let tail = ($name | split row '/' | last | str substring 0..15)
     dispatch $repo $manifest {
       kind: branch
+      parent: $resolved_parent
       base_sha: $base_sha
       head_sha: $head_sha
       refs: $"($integ)..($name)"
@@ -641,25 +657,28 @@ def "main commit" [
   ...shas: string     # Commits (SHAs or anything rev-parse resolves)
   --manifest: string = $DEFAULT_MANIFEST
   --context: string   # Context slug; default review-<branch-slug> of the branch containing the commit. Single target only
+  --parent: string    # Parent canonical context address for a new context; single target only
   --foreground        # Run in this shell instead of the review tmux session
   --force             # Fire even if a window for the context is already running
   -C: path            # Repository directory (default: current)
 ] {
   if ($shas | is-empty) { die "give at least one commit" }
   check-single-context $context ($shas | length)
+  let resolved_parent = (resolve-parent $parent ($shas | length) ($C | default $env.PWD | path expand))
   let manifest = (resolve-manifest $manifest)
   let repo = (repo-of ($C | default $env.PWD | path expand))
 
   for sha in $shas {
     let head_sha = (rev-parse $repo $sha)
-    let parent = (do { ^git -C $repo rev-parse --verify --quiet $"($head_sha)^" } | complete)
-    if $parent.exit_code != 0 { die $"commit ($sha | str substring 0..9) has no parent (root commit?); use range <empty-tree>..<sha> instead" }
-    let base_sha = ($parent.stdout | str trim)
+    let first_parent = (do { ^git -C $repo rev-parse --verify --quiet $"($head_sha)^" } | complete)
+    if $first_parent.exit_code != 0 { die $"commit ($sha | str substring 0..9) has no parent (root commit?); use range <empty-tree>..<sha> instead" }
+    let base_sha = ($first_parent.stdout | str trim)
     let s10 = ($head_sha | str substring 0..9)
     let br = (branch-of $repo $head_sha)
     if $br == null { die "commit ($s10) is on no branch; pass --context to name one" }
     dispatch $repo $manifest {
       kind: commit
+      parent: $resolved_parent
       base_sha: $base_sha
       head_sha: $head_sha
       refs: $"($base_sha | str substring 0..9)..($s10)"
@@ -676,12 +695,14 @@ def "main range" [
   ...ranges: string   # Ranges as <base>..<head>
   --manifest: string = $DEFAULT_MANIFEST
   --context: string   # Context slug; default review-<branch-slug> of the branch containing the head. Single target only
+  --parent: string    # Parent canonical context address for a new context; single target only
   --foreground        # Run in this shell instead of the review tmux session
   --force             # Fire even if a window for the context is already running
   -C: path            # Repository directory (default: current)
 ] {
   if ($ranges | is-empty) { die "give at least one range as <base>..<head>" }
   check-single-context $context ($ranges | length)
+  let resolved_parent = (resolve-parent $parent ($ranges | length) ($C | default $env.PWD | path expand))
   let manifest = (resolve-manifest $manifest)
   let repo = (repo-of ($C | default $env.PWD | path expand))
 
@@ -699,6 +720,7 @@ def "main range" [
     if $br == null { die "head ($h10) is on no branch; pass --context to name one" }
     dispatch $repo $manifest {
       kind: range
+      parent: $resolved_parent
       base_sha: $base_sha
       head_sha: $head_sha
       refs: $"($b10)..($h10)"
