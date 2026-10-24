@@ -72,18 +72,18 @@
         ]
       },
       "locked": {
-        "lastModified": 1792672325,
-        "narHash": "sha256-dCdIRkcOeV9AFErXcdfMJp1Pymw/rlFhpDzQHRBmWeU=",
-        "owner": "palekiwi-labs",
-        "repo": "cue",
-        "rev": "216c5ec0b73ebc17996ca1e13e54535748a73af4",
-        "type": "github"
+        "lastModified": 1792841662,
+        "narHash": "sha256-72bTg1b4SlJ07vqA4VGCslIeCNH6r8wQq2zGDLgBmxg=",
+        "ref": "cue-agent-prototype",
+        "rev": "6572f787cab5f6ecd1144fef727abcec84965038",
+        "revCount": 546,
+        "type": "git",
+        "url": "file:///home/pl/code/palekiwi-labs/cue"
       },
       "original": {
-        "owner": "palekiwi-labs",
         "ref": "cue-agent-prototype",
-        "repo": "cue",
-        "type": "github"
+        "type": "git",
+        "url": "file:///home/pl/code/palekiwi-labs/cue"
       }
     },
     "cue-platform": {
@@ -98,15 +98,16 @@
         "nvf": "nvf"
       },
       "locked": {
-        "lastModified": 1792765014,
-        "narHash": "sha256-eyEjJDjaqTpZpVXDCNU8AZFpGQMPCeFVgxjfmtQk5qQ=",
-        "ref": "refs/heads/master",
-        "rev": "b5d51b823467d426be9da54b2ddb49f9c328eab9",
-        "revCount": 14,
+        "lastModified": 1792843028,
+        "narHash": "sha256-0g02eWh9PdnomuvKt4JmZiHK99y/1+kMv9wHvJePC+k=",
+        "ref": "dev",
+        "rev": "319ed148f94d6ab66b8c32846fb7609950ca92d5",
+        "revCount": 75,
         "type": "git",
         "url": "file:///home/pl/code/palekiwi-labs/cue-platform"
       },
       "original": {
+        "ref": "dev",
         "type": "git",
         "url": "file:///home/pl/code/palekiwi-labs/cue-platform"
       }
