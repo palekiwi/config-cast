@@ -48,16 +48,16 @@
         ]
       },
       "locked": {
-        "lastModified": 1792577042,
-        "narHash": "sha256-5R/7yTDlv6jOQS+gHfuq/CvMnFxk2g3HncAwyIzXp/Q=",
+        "lastModified": 1792993550,
+        "narHash": "sha256-52wEFO+sycgUcJLPRktgRyJZWp80G+6CyjQ70Hw6iDw=",
         "owner": "palekiwi-labs",
         "repo": "cast",
-        "rev": "f637d407d398abaf022674006b7c192ff941c02b",
+        "rev": "f3e2bc45c167108a6cbb6a28159f1b013c13c714",
         "type": "github"
       },
       "original": {
         "owner": "palekiwi-labs",
-        "ref": "spike/herdr-service-pivot",
+        "ref": "feat/cast-tui",
         "repo": "cast",
         "type": "github"
       }
@@ -72,18 +72,18 @@
         ]
       },
       "locked": {
-        "lastModified": 1792841662,
-        "narHash": "sha256-72bTg1b4SlJ07vqA4VGCslIeCNH6r8wQq2zGDLgBmxg=",
-        "ref": "cue-agent-prototype",
-        "rev": "6572f787cab5f6ecd1144fef727abcec84965038",
-        "revCount": 546,
-        "type": "git",
-        "url": "file:///home/pl/code/palekiwi-labs/cue"
+        "lastModified": 1792942915,
+        "narHash": "sha256-+5aJmXzGTK98v317rP6cetrJyZMKWUvkb8s/qYEkX/k=",
+        "owner": "palekiwi-labs",
+        "repo": "cue",
+        "rev": "09d35c2b30139a2a8e41d96763d2e3d5553a04ed",
+        "type": "github"
       },
       "original": {
+        "owner": "palekiwi-labs",
         "ref": "cue-agent-prototype",
-        "type": "git",
-        "url": "file:///home/pl/code/palekiwi-labs/cue"
+        "repo": "cue",
+        "type": "github"
       }
     },
     "cue-platform": {
@@ -98,18 +98,17 @@
         "nvf": "nvf"
       },
       "locked": {
-        "lastModified": 1792843028,
-        "narHash": "sha256-0g02eWh9PdnomuvKt4JmZiHK99y/1+kMv9wHvJePC+k=",
-        "ref": "dev",
-        "rev": "319ed148f94d6ab66b8c32846fb7609950ca92d5",
-        "revCount": 75,
-        "type": "git",
-        "url": "file:///home/pl/code/palekiwi-labs/cue-platform"
+        "lastModified": 1793008159,
+        "narHash": "sha256-tukpAFCwWOoqE9nCxDcjPx4ocR0U3TTEif3kSxWn78Y=",
+        "owner": "palekiwi-labs",
+        "repo": "cue-platform",
+        "rev": "00e38973342e129473951257833ab50d1aff9c4d",
+        "type": "github"
       },
       "original": {
-        "ref": "dev",
-        "type": "git",
-        "url": "file:///home/pl/code/palekiwi-labs/cue-platform"
+        "owner": "palekiwi-labs",
+        "repo": "cue-platform",
+        "type": "github"
       }
     },
     "fenix": {

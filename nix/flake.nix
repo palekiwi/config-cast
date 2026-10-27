@@ -9,7 +9,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     cue-platform = {
-      url = "git+file:///home/pl/code/palekiwi-labs/cue-platform?ref=dev";
+      url = "github:palekiwi-labs/cue-platform";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     llm-agents.follows = "cue-platform/llm-agents";
